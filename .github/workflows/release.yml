@@ -20,11 +20,22 @@ jobs:
       - name: Build release artifacts
         run: make build-all VERSION=${GITHUB_REF_NAME}
 
-      - name: Publish release
+      # The release is created as a draft and published only once every archive
+      # is uploaded. `gh release create` would otherwise expose the tag through
+      # /releases/latest for as long as the upload takes (~2 minutes for 26 MB),
+      # and scripts/install.sh, which resolves that endpoint, would fail with
+      # "download failed" on a release that has no assets yet.
+      - name: Upload artifacts to a draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
+            --draft \
             --title "ServerOk ${GITHUB_REF_NAME}" \
             --generate-notes \
             dist/*.tar.gz dist/checksums.txt
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
