@@ -1,4 +1,4 @@
-// Программа servertester — бенчмарк и сетевая диагностика сервера: шапка с
+// Программа serverok — бенчмарк и сетевая диагностика сервера: шапка с
 // характеристиками железа и ОС, тесты процессора, памяти и диска, замер
 // скорости канала, геолокация адреса вместе с регистрационной записью RDAP,
 // репутация в чёрных списках, проверка доступности сервисов и диагностика
@@ -68,7 +68,7 @@ func main() {
 	// программа успеет что-либо измерить или запросить.
 
 	if *showVer {
-		fmt.Println("servertester " + version)
+		fmt.Println("serverok " + version)
 		return
 	}
 
@@ -193,8 +193,8 @@ func chooseTests(reg *runner.Registry, testList string, all, interactive bool, i
 // разбор. Ошибки записи при этом всё равно сообщаются — в stderr.
 func saveOutputs(rep *report.Report, jsonPath, mdPath string, offer, assumeYes, quiet bool, in io.Reader) {
 	if jsonPath == "" && mdPath == "" && offer {
-		if assumeYes || ui.Confirm("Save the report to servertester-report.json/.md?", in) {
-			jsonPath, mdPath = "servertester-report.json", "servertester-report.md"
+		if assumeYes || ui.Confirm("Save the report to serverok-report.json/.md?", in) {
+			jsonPath, mdPath = "serverok-report.json", "serverok-report.md"
 		}
 	}
 	// Общая обёртка для обоих форматов: пишем файл и сообщаем о результате.
@@ -204,7 +204,7 @@ func saveOutputs(rep *report.Report, jsonPath, mdPath string, offer, assumeYes, 
 		}
 		if err := save(rep, path); err != nil {
 			// Об ошибке сообщаем всегда, даже в quiet, — но в stderr.
-			fmt.Fprintf(os.Stderr, "servertester: cannot write %s: %v\n", kind, err)
+			fmt.Fprintf(os.Stderr, "serverok: cannot write %s: %v\n", kind, err)
 			return
 		}
 		if !quiet {
@@ -252,20 +252,20 @@ func parseSize(s string) (uint64, error) {
 
 // printUsage печатает справку: примеры запуска и список флагов.
 func printUsage() {
-	fmt.Fprintf(os.Stderr, `servertester %s — VPS benchmark and network diagnostics
+	fmt.Fprintf(os.Stderr, `serverok %s — VPS benchmark and network diagnostics
 
 Usage:
-  servertester [flags]
+  serverok [flags]
 
   With no flags and a terminal attached it shows the test menu.
   Without a terminal (curl | bash, cron) it runs every test.
 
 Examples:
-  servertester                        # interactive menu
-  servertester -all                   # run everything
-  servertester -test cpu,disk,ip      # pick tests
-  servertester -all -nodes fast       # quick speedtest set
-  servertester -all -quiet -json r.json
+  serverok                        # interactive menu
+  serverok -all                   # run everything
+  serverok -test cpu,disk,ip      # pick tests
+  serverok -all -nodes fast       # quick speedtest set
+  serverok -all -quiet -json r.json
 
 Flags:
 `, version)
@@ -275,6 +275,6 @@ Flags:
 // fail печатает ошибку разбора аргументов и завершает программу с кодом 2 —
 // как принято для неверного использования утилиты.
 func fail(err error) {
-	fmt.Fprintln(os.Stderr, "servertester: "+err.Error())
+	fmt.Fprintln(os.Stderr, "serverok: "+err.Error())
 	os.Exit(2)
 }

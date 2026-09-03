@@ -2,7 +2,7 @@ package report
 
 // text.go — рендер отчёта в терминал. Каждая функция Print* печатает одну
 // секцию и вызывается из runner после успешного выполнения соответствующего
-// теста (см. поле Print в реестре cmd/servertester/tests.go).
+// теста (см. поле Print в реестре cmd/serverok/tests.go).
 //
 // Здесь нет ни одного сетевого или системного вызова: на вход приходят уже
 // собранные структуры из model.go. Благодаря этому вывод легко проверять и
@@ -17,7 +17,7 @@ import (
 
 // Banner печатает шапку с версией и подсказкой по запуску — как в bench.sh.
 func Banner(version, usage string) {
-	ui.Header("ServerTester — VPS Benchmark & Diagnostics")
+	ui.Header("ServerOk — VPS Benchmark & Diagnostics")
 	ui.KV(" Version", version)
 	ui.KV(" Usage", usage)
 	ui.Divider()

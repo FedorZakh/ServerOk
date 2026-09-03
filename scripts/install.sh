@@ -1,15 +1,15 @@
 #!/bin/sh
-# ServerTester bootstrap installer.
+# ServerOk bootstrap installer.
 #
 #   bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)
 #   curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh | bash -s -- -all
 #
 # It downloads the release binary for this platform, verifies its SHA-256 and
-# runs it. Arguments after `--` are passed straight to servertester.
+# runs it. Arguments after `--` are passed straight to serverok.
 set -eu
 
 REPO="${SERVERTESTER_REPO:-FedorZakh/ServerOk}"
-BINARY="servertester"
+BINARY="serverok"
 INSTALL_DIR=""
 NO_VERIFY=0
 
@@ -114,7 +114,7 @@ else
 fi
 info "version:  $TAG"
 
-TMPDIR_ST=$(mktemp -d 2>/dev/null || mktemp -d -t servertester)
+TMPDIR_ST=$(mktemp -d 2>/dev/null || mktemp -d -t serverok)
 cleanup() { rm -rf "$TMPDIR_ST"; }
 trap cleanup EXIT INT TERM
 

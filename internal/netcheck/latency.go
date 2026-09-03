@@ -200,7 +200,7 @@ func icmpPing(ctx context.Context, host, method string, count int) (float64, flo
 		}
 		msg := icmp.Message{
 			Type: ipv4.ICMPTypeEcho,
-			Body: &icmp.Echo{ID: id, Seq: seq, Data: []byte("servertester")},
+			Body: &icmp.Echo{ID: id, Seq: seq, Data: []byte("serverok")},
 		}
 		wb, err := msg.Marshal(nil)
 		if err != nil {
