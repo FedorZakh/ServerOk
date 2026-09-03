@@ -21,8 +21,8 @@ func WriteMarkdown(r *Report, path string) error {
 // в модели не nil).
 func Markdown(r *Report) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# ServerTester report\n\n")
-	fmt.Fprintf(&b, "*Generated %s with ServerTester %s*\n\n", r.Generated.Format("2006-01-02 15:04:05 MST"), r.Version)
+	fmt.Fprintf(&b, "# ServerOk report\n\n")
+	fmt.Fprintf(&b, "*Generated %s with ServerOk %s*\n\n", r.Generated.Format("2006-01-02 15:04:05 MST"), r.Version)
 
 	if s := r.System; s != nil {
 		b.WriteString("## System\n\n| Field | Value |\n|---|---|\n")

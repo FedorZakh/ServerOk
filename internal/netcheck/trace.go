@@ -124,7 +124,7 @@ func nativeTrace(ctx context.Context, host string, maxHops int) []report.TraceHo
 		}
 		msg := icmp.Message{
 			Type: ipv4.ICMPTypeEcho,
-			Body: &icmp.Echo{ID: os.Getpid() & 0xffff, Seq: ttl, Data: []byte("servertester-trace")},
+			Body: &icmp.Echo{ID: os.Getpid() & 0xffff, Seq: ttl, Data: []byte("serverok-trace")},
 		}
 		wb, err := msg.Marshal(nil)
 		if err != nil {

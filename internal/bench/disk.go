@@ -107,7 +107,7 @@ func Disk(ctx context.Context, path string, size uint64, runs int, status func(s
 // диска. На macOS File.Sync выполняет F_FULLFSYNC, на Linux — fsync, то есть
 // поведение соответствует `dd conv=fdatasync`.
 func sequentialWrite(ctx context.Context, dir string, block []byte, total uint64) (float64, error) {
-	f, err := os.CreateTemp(dir, ".servertester-io-*")
+	f, err := os.CreateTemp(dir, ".serverok-io-*")
 	if err != nil {
 		return 0, fmt.Errorf("cannot write to %s: %w", dir, err)
 	}
@@ -150,7 +150,7 @@ func sequentialWrite(ctx context.Context, dir string, block []byte, total uint64
 // Sync делается не после каждой записи, а раз в 32: посинхронная запись
 // меряла бы задержку сброса кэша, а не пропускную способность.
 func randomWrite(ctx context.Context, dir string) (float64, error) {
-	f, err := os.CreateTemp(dir, ".servertester-rnd-*")
+	f, err := os.CreateTemp(dir, ".serverok-rnd-*")
 	if err != nil {
 		return 0, err
 	}
@@ -209,7 +209,7 @@ func defaultDiskPath() string {
 	if err != nil {
 		return os.TempDir()
 	}
-	probe, err := os.CreateTemp(wd, ".servertester-probe-*")
+	probe, err := os.CreateTemp(wd, ".serverok-probe-*")
 	if err != nil {
 		return os.TempDir()
 	}

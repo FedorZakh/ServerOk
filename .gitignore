@@ -2,7 +2,7 @@
 CLAUDE.md
 
 /dist/
-/servertester
-servertester-report.json
-servertester-report.md
+/serverok
+serverok-report.json
+serverok-report.md
 .DS_Store

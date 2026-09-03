@@ -25,6 +25,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            --title "ServerTester ${GITHUB_REF_NAME}" \
+            --title "ServerOk ${GITHUB_REF_NAME}" \
             --generate-notes \
             dist/*.tar.gz dist/checksums.txt

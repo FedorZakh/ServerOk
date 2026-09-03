@@ -23,5 +23,5 @@ jobs:
       - name: Cross-compile
         run: |
           for target in linux/amd64 linux/arm64 linux/386 darwin/arm64 freebsd/amd64; do
-            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/servertester
+            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/serverok
           done
