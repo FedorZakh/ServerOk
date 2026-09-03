@@ -72,6 +72,32 @@ go install github.com/FedorZakh/ServerOk/cmd/serverok@latest
 git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
 ```
 
+### Running it after install
+
+`--install` puts the binary on your `PATH` (`/usr/local/bin/serverok` by
+default), so afterwards it's just:
+
+```bash
+serverok                 # interactive menu
+serverok -all             # every test, no menu
+serverok -test cpu,disk   # only the tests you name (see -list)
+serverok -h                # all flags
+```
+
+If you built with `go install` instead, the binary lands in
+`$(go env GOPATH)/bin/serverok` — make sure that directory is on your `PATH`.
+
+### Uninstalling
+
+`serverok` is a single static binary with no config files, services or
+background processes — removing it is just deleting the file:
+
+```bash
+sudo rm /usr/local/bin/serverok          # or wherever --install=<dir> put it
+# built with `go install` instead?
+rm "$(go env GOPATH)/bin/serverok"
+```
+
 ## The menu
 
 ```
@@ -191,6 +217,22 @@ internal/report/      data model + text/JSON/Markdown renderers
 Adding a test means appending one `runner.Test` in
 `cmd/serverok/tests.go` — the menu, the `-test` flag and the report order
 all derive from that registry.
+
+## Technologies
+
+* **[Go](https://go.dev/)** (1.26) — the whole tool is a single dependency-free
+  static binary; no runtime, no interpreter needed on the target server.
+* **[gopsutil](https://github.com/shirou/gopsutil)** — cross-platform host,
+  CPU, memory and disk facts for System Information.
+* **[speedtest-go](https://github.com/showwin/speedtest-go)** — speedtest.net
+  client for the Network Speedtest.
+* **[golang.org/x/net](https://pkg.go.dev/golang.org/x/net)** — raw ICMP
+  sockets for latency probing.
+* **[golang.org/x/term](https://pkg.go.dev/golang.org/x/term)** — TTY
+  detection for the interactive menu vs. non-interactive (`-all`/cron) mode.
+* Everything else (RDAP, DNSBL, geolocation, unblock checks, traceroute) is
+  plain `net`/`net/http` against public APIs and system tools — no other
+  third-party dependencies.
 
 ## License
 
