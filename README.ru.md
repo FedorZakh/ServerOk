@@ -43,6 +43,32 @@ go install github.com/FedorZakh/ServerOk/cmd/serverok@latest
 git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
 ```
 
+### Запуск после установки
+
+`--install` кладёт бинарник в `PATH` (по умолчанию `/usr/local/bin/serverok`),
+дальше достаточно:
+
+```bash
+serverok                 # интерактивное меню
+serverok -all             # все тесты без меню
+serverok -test cpu,disk   # только нужные тесты (список — -list)
+serverok -h                # все флаги
+```
+
+Если собирали через `go install`, бинарник окажется в
+`$(go env GOPATH)/bin/serverok` — убедитесь, что этот каталог есть в `PATH`.
+
+### Удаление
+
+`serverok` — один статический бинарник без конфигов, сервисов и фоновых
+процессов, поэтому удаление — это просто удалить файл:
+
+```bash
+sudo rm /usr/local/bin/serverok          # или другой каталог из --install=<dir>
+# собирали через `go install`?
+rm "$(go env GOPATH)/bin/serverok"
+```
+
 ## Меню
 
 ```
@@ -162,6 +188,23 @@ internal/report/      модель данных + рендеры text/JSON/Markd
 
 Добавить тест = дописать один `runner.Test` в `cmd/serverok/tests.go`:
 меню, флаг `-test` и порядок в отчёте берутся из этого реестра.
+
+## Технологии
+
+* **[Go](https://go.dev/)** (1.26) — весь инструмент собирается в один
+  статический бинарник без зависимостей: на сервере не нужен ни рантайм, ни
+  интерпретатор.
+* **[gopsutil](https://github.com/shirou/gopsutil)** — кроссплатформенные
+  данные о хосте, CPU, памяти и диске для System Information.
+* **[speedtest-go](https://github.com/showwin/speedtest-go)** — клиент
+  speedtest.net для теста Network Speedtest.
+* **[golang.org/x/net](https://pkg.go.dev/golang.org/x/net)** — raw ICMP-сокеты
+  для замера задержек.
+* **[golang.org/x/term](https://pkg.go.dev/golang.org/x/term)** — определение
+  TTY, чтобы выбрать интерактивное меню или неинтерактивный режим (`-all`/cron).
+* Всё остальное (RDAP, DNSBL, геолокация, проверки разблокировки, traceroute)
+  сделано на голых `net`/`net/http` к публичным API и системным утилитам —
+  других сторонних зависимостей нет.
 
 ## Лицензия
 
