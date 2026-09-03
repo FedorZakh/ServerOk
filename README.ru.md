@@ -51,9 +51,12 @@ git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
  3) Memory Benchmark                 8) Streaming & AI Service Unblock
  4) Disk I/O Speed                   9) Routing, Latency & Ports
  5) Network Speedtest
- a) Run all tests                    q) Quit
+ a) Run all tests                   0) Quit
  Select (e.g. 1,3,5 or a):
 ```
+
+После каждого прогона меню появляется снова — можно запускать тесты один за
+другим. Программа завершается по пункту `0` или по Ctrl+C.
 
 Отчёт печатается на английском — так им удобнее делиться на форумах
 (LowEndTalk, NodeSeek и т. п.).
@@ -88,10 +91,9 @@ git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
   -no-color            без ANSI-цветов
   -no-ipv6             пропустить все проверки IPv6
   -quiet               без вывода в терминал (вместе с -json/-md)
-  -timeout 30m         общий лимит времени
+  -timeout 30m         лимит времени на один прогон
   -test-timeout 20m    лимит на один тест
   -trace-hops 15       максимум хопов traceroute
-  -yes                 отвечать «да» на вопросы
   -version
 ```
 
