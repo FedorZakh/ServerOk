@@ -1,4 +1,4 @@
-# ServerTester
+# ServerOk
 
 A single-binary VPS benchmark and network diagnostics tool, in the spirit of
 `bench.sh` — but written in Go, with an interactive test menu and a much wider
@@ -10,7 +10,7 @@ No dependencies on the server: one static binary, no Python, no `speedtest-cli`,
 no `whois`.
 
 ```
---------------- ServerTester — VPS Benchmark & Diagnostics ---------------
+---------------- ServerOk — VPS Benchmark & Diagnostics ----------------
  Version           : v1.0.0
  Usage             : bash <(curl -sL .../install.sh)
 --------------------------------------------------------------------------
@@ -57,7 +57,7 @@ Install it permanently:
 
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh) --install
-servertester
+serverok
 ```
 
 The installer refuses to run a binary it could not verify against
@@ -67,9 +67,9 @@ target directory.
 Or build it yourself:
 
 ```bash
-go install github.com/FedorZakh/ServerOk/cmd/servertester@latest
+go install github.com/FedorZakh/ServerOk/cmd/serverok@latest
 # or
-git clone https://github.com/FedorZakh/ServerOk && cd servertester && make build
+git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
 ```
 
 ## The menu
@@ -124,9 +124,9 @@ git clone https://github.com/FedorZakh/ServerOk && cd servertester && make build
 Examples:
 
 ```bash
-servertester -all -nodes fast              # everything, quick speedtest
-servertester -test ip,blacklist            # who owns this IP, and is it clean?
-servertester -all -quiet -json report.json # for cron and dashboards
+serverok -all -nodes fast              # everything, quick speedtest
+serverok -test ip,blacklist            # who owns this IP, and is it clean?
+serverok -all -quiet -json report.json # for cron and dashboards
 ```
 
 ## Notes
@@ -159,7 +159,7 @@ servertester -all -quiet -json report.json # for cron and dashboards
 
 ```bash
 make lint     # gofmt + go vet + go test
-make build    # ./servertester
+make build    # ./serverok
 make build-all VERSION=v1.0.0   # release archives for 7 platforms in dist/
 ```
 
@@ -177,7 +177,7 @@ downloads.
 ## Architecture
 
 ```
-cmd/servertester/     flags, menu, test registry
+cmd/serverok/          flags, menu, test registry
 internal/ui/          ANSI colors, frame, table and menu rendering
 internal/runner/      test registry and execution (timeouts, Ctrl+C)
 internal/sysinfo/     hardware and OS facts (/proc, sysfs, gopsutil)
@@ -189,7 +189,7 @@ internal/report/      data model + text/JSON/Markdown renderers
 ```
 
 Adding a test means appending one `runner.Test` in
-`cmd/servertester/tests.go` — the menu, the `-test` flag and the report order
+`cmd/serverok/tests.go` — the menu, the `-test` flag and the report order
 all derive from that registry.
 
 ## License

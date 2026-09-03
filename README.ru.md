@@ -1,4 +1,4 @@
-# ServerTester
+# ServerOk
 
 Бенчмарк и диагностика VPS одним бинарником — в духе `bench.sh`, но на Go, с
 интерактивным меню выбора тестов и заметно более широким набором проверок:
@@ -29,7 +29,7 @@ curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/insta
 
 ```bash
 bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh) --install
-servertester
+serverok
 ```
 
 Скрипт откажется запускать бинарник, который не удалось сверить с
@@ -38,9 +38,9 @@ servertester
 Собрать самому:
 
 ```bash
-go install github.com/FedorZakh/ServerOk/cmd/servertester@latest
+go install github.com/FedorZakh/ServerOk/cmd/serverok@latest
 # или
-git clone https://github.com/FedorZakh/ServerOk && cd servertester && make build
+git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
 ```
 
 ## Меню
@@ -98,9 +98,9 @@ git clone https://github.com/FedorZakh/ServerOk && cd servertester && make build
 Примеры:
 
 ```bash
-servertester -all -nodes fast              # всё, но быстрый speedtest
-servertester -test ip,blacklist            # чей это IP и чист ли он
-servertester -all -quiet -json report.json # для cron и дашбордов
+serverok -all -nodes fast              # всё, но быстрый speedtest
+serverok -test ip,blacklist            # чей это IP и чист ли он
+serverok -all -quiet -json report.json # для cron и дашбордов
 ```
 
 ## Важные детали
@@ -132,7 +132,7 @@ servertester -all -quiet -json report.json # для cron и дашбордов
 
 ```bash
 make lint     # gofmt + go vet + go test
-make build    # ./servertester
+make build    # ./serverok
 make build-all VERSION=v1.0.0   # архивы релиза под 7 платформ в dist/
 ```
 
@@ -149,7 +149,7 @@ darwin (amd64/arm64) и freebsd (amd64), сгенерирует `checksums.txt` 
 ## Архитектура
 
 ```
-cmd/servertester/     флаги, меню, реестр тестов
+cmd/serverok/          флаги, меню, реестр тестов
 internal/ui/          ANSI-цвета, рамка, таблицы, меню
 internal/runner/      реестр и запуск тестов (таймауты, Ctrl+C)
 internal/sysinfo/     железо и ОС (/proc, sysfs, gopsutil)
@@ -160,7 +160,7 @@ internal/unblock/     проверки стриминга и AI-сервисов
 internal/report/      модель данных + рендеры text/JSON/Markdown
 ```
 
-Добавить тест = дописать один `runner.Test` в `cmd/servertester/tests.go`:
+Добавить тест = дописать один `runner.Test` в `cmd/serverok/tests.go`:
 меню, флаг `-test` и порядок в отчёте берутся из этого реестра.
 
 ## Лицензия
