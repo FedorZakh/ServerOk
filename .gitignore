@@ -1,0 +1,8 @@
+# Локальные заметки для ассистента — в репозиторий не попадают.
+CLAUDE.md
+
+/dist/
+/servertester
+servertester-report.json
+servertester-report.md
+.DS_Store

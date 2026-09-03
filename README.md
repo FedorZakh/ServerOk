@@ -1,0 +1,197 @@
+# ServerTester
+
+A single-binary VPS benchmark and network diagnostics tool, in the spirit of
+`bench.sh` — but written in Go, with an interactive test menu and a much wider
+set of checks: IP geolocation, **RDAP registration data (who the IP is
+registered to)**, DNSBL reputation, streaming/AI service unblock checks and
+routing diagnostics.
+
+No dependencies on the server: one static binary, no Python, no `speedtest-cli`,
+no `whois`.
+
+```
+--------------- ServerTester — VPS Benchmark & Diagnostics ---------------
+ Version           : v1.0.0
+ Usage             : bash <(curl -sL .../install.sh)
+--------------------------------------------------------------------------
+
+------------------------- System Information -----------------------------
+CPU Model          : AMD EPYC 7763 64-Core Processor
+CPU Cores          : 1 @ 2449.998 MHz
+CPU Cache          : 512 KB
+AES-NI             : ✓ Enabled
+VM-x/AMD-V         : ✓ Enabled
+Total Disk         : 29.9 GB (2.9 GB Used)
+Total RAM          : 1.9 GB (297.1 MB Used)
+Total Swap         : 512.0 MB (0 KB Used)
+System Uptime      : 0 days, 0 hour 5 min
+Load Average       : 0.01, 0.12, 0.07
+OS                 : Ubuntu 24.04.4 LTS
+Arch               : amd64 (64 Bit)
+Kernel             : 6.8.0-111-generic
+TCP Congestion Ctrl: cubic
+Virtualization     : KVM
+IPv4/IPv6          : ✓ Online / ✗ Offline
+Organization       : AS212743 ETERNITY INTERNATIONAL LIMITED
+Location           : Kerkrade / NL
+Region             : Limburg
+```
+
+## Quick start
+
+Run it straight from GitHub — the script downloads the release binary for your
+platform, verifies its SHA-256 and starts the menu:
+
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)
+```
+
+Run every test without the menu (also what happens automatically when there is
+no terminal, e.g. in cron):
+
+```bash
+curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh | bash -s -- -all
+```
+
+Install it permanently:
+
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh) --install
+servertester
+```
+
+The installer refuses to run a binary it could not verify against
+`checksums.txt`; `--no-verify` overrides that, and `--install=<dir>` picks the
+target directory.
+
+Or build it yourself:
+
+```bash
+go install github.com/FedorZakh/ServerOk/cmd/servertester@latest
+# or
+git clone https://github.com/FedorZakh/ServerOk && cd servertester && make build
+```
+
+## The menu
+
+```
+ 1) System Information               6) IP Location & Registration
+ 2) CPU Benchmark                    7) IP Reputation (DNSBL)
+ 3) Memory Benchmark                 8) Streaming & AI Service Unblock
+ 4) Disk I/O Speed                   9) Routing, Latency & Ports
+ 5) Network Speedtest
+ a) Run all tests                    q) Quit
+ Select (e.g. 1,3,5 or a):
+```
+
+## Tests
+
+| Test | What it measures |
+|---|---|
+| **System Information** | CPU model/cores/cache, AES-NI and virtualization extensions, disk, RAM, swap, uptime, load, OS, kernel, TCP congestion control, hypervisor, IPv4/IPv6 reachability, ASN, location |
+| **CPU Benchmark** | AES-256-GCM, SHA-256, gzip and a prime sieve, each single- and multi-threaded, plus a normalized score (≈1000 ≙ one modern server core) and the multi-core scaling factor |
+| **Memory Benchmark** | Sequential write/read/copy bandwidth and random-access latency (pointer chase) |
+| **Disk I/O Speed** | Three sequential 1 GiB writes with `fsync` (the `dd conv=fdatasync` equivalent), their average, and 4K random-write IOPS |
+| **Network Speedtest** | Upload, download and latency against speedtest.net nodes worldwide; servers are found by city keyword and dead sponsors are skipped automatically |
+| **IP Location & Registration** | Geolocation of the IPv4/IPv6 address (ASN, ISP, city, hosting/proxy flags) **and the RDAP record: network name, CIDR, allocation type, registry, registrant organization, registration dates and the abuse contact** |
+| **IP Reputation (DNSBL)** | 14 blocklists (Spamhaus, Barracuda, SpamCop, SORBS, UCEPROTECT, …). Zones that refuse public resolvers are reported as inconclusive, not as "listed" |
+| **Streaming & AI Service Unblock** | Netflix (full / originals-only / blocked), YouTube Premium, Disney+, Prime Video, Spotify, ChatGPT, Claude, TikTok, Steam — with the region each one resolves you to. A service that answers but does not reveal a region is reported as `Unknown`, never as a confident `Yes` |
+| **Routing, Latency & Ports** | RTT to 11 global anchors (ICMP, falling back to TCP/443), outbound port reachability (25, 465, 587, … — does the provider block SMTP?), IPv4/IPv6, MTU, congestion control and BBR availability, DNS resolver identity, and traceroutes to four key networks with per-hop AS lookup |
+
+## Flags
+
+```
+  -all                 run every test without showing the menu
+  -test cpu,disk,ip    run specific tests (see -list)
+  -list                list available tests
+  -nodes fast|default|full|<ids>
+                       speedtest node set (default: 9 worldwide nodes)
+  -disk-size 1G        size of the disk test file
+  -disk-path DIR       where to run the disk test (default: working directory)
+  -cpu-time 2.5        seconds per CPU workload and mode
+  -json report.json    write the report as JSON
+  -md report.md        write the report as Markdown (for forum posts)
+  -no-color            disable ANSI colors
+  -no-ipv6             skip all IPv6 lookups
+  -quiet               no terminal output (use with -json/-md)
+  -timeout 30m         overall time budget
+  -test-timeout 20m    per-test time limit
+  -trace-hops 15       maximum traceroute hops
+  -yes                 answer yes to prompts
+  -version
+```
+
+Examples:
+
+```bash
+servertester -all -nodes fast              # everything, quick speedtest
+servertester -test ip,blacklist            # who owns this IP, and is it clean?
+servertester -all -quiet -json report.json # for cron and dashboards
+```
+
+## Notes
+
+* **Root is not required.** Only the traceroute test benefits from it: without
+  root the tool uses the system `traceroute` binary, and skips the test if there
+  is none. Latency probing falls back from ICMP to a TCP handshake automatically.
+* **The disk test writes to the current directory** (override with `-disk-path`).
+  It needs ~1.5 GiB free, otherwise it shrinks the test file to 256 MiB and says
+  so. The temp file is always removed, including on Ctrl+C.
+* **Service unblock checks are best effort.** They probe third-party endpoints
+  that change over time; a Cloudflare bot challenge is reported as `Failed`
+  rather than as a regional block, and reachability without a region marker is
+  `Unknown` rather than `Yes` (disneyplus.com, for one, answers 200 worldwide).
+  All of them live in `internal/unblock/checks.go`, one function each.
+* **Latency prefers ICMP and falls back to a TCP handshake**, and each row says
+  which method produced the number. Replies are matched against the probe
+  (peer, sequence, and id on a raw socket), so parallel anchors cannot borrow
+  each other's timings.
+* **Addresses returned by the geolocation APIs are validated** before they are
+  used in an RDAP URL, a DNSBL query or a `whois` argument — ip-api.com is
+  plain HTTP on the free tier, so its answer is treated as untrusted input.
+* **Spamhaus and some other DNSBLs refuse queries from public resolvers**
+  (1.1.1.1, 8.8.8.8) and answer `127.255.255.x`. That is shown as
+  `unavailable`, never as a listing.
+* The CPU score is a relative index, not a Geekbench number: it is the geometric
+  mean of four workloads against a fixed baseline.
+
+## Development
+
+```bash
+make lint     # gofmt + go vet + go test
+make build    # ./servertester
+make build-all VERSION=v1.0.0   # release archives for 7 platforms in dist/
+```
+
+Releases are cut by pushing a tag:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+`.github/workflows/release.yml` cross-compiles linux (amd64/arm64/386/arm),
+darwin (amd64/arm64) and freebsd (amd64), generates `checksums.txt` and
+publishes them to GitHub Releases — which is exactly what `scripts/install.sh`
+downloads.
+
+## Architecture
+
+```
+cmd/servertester/     flags, menu, test registry
+internal/ui/          ANSI colors, frame, table and menu rendering
+internal/runner/      test registry and execution (timeouts, Ctrl+C)
+internal/sysinfo/     hardware and OS facts (/proc, sysfs, gopsutil)
+internal/bench/       CPU, memory and disk benchmarks
+internal/netcheck/    speedtest, latency, traceroute, ports, stack
+internal/ipinfo/      geolocation, RDAP, DNSBL
+internal/unblock/     streaming and AI service probes
+internal/report/      data model + text/JSON/Markdown renderers
+```
+
+Adding a test means appending one `runner.Test` in
+`cmd/servertester/tests.go` — the menu, the `-test` flag and the report order
+all derive from that registry.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
