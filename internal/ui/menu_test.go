@@ -18,8 +18,8 @@ func testItems() []MenuItem {
 	}
 }
 
-// Проверяем все формы ввода: номера, ID, «всё», пустой ввод (= всё), выход и
-// заведомо неверный номер.
+// Проверяем все формы ввода: номера, ID, «всё», пустой ввод (= всё), выход
+// (0) и заведомо неверный номер.
 func TestMenuSelection(t *testing.T) {
 	Out = io.Discard
 	defer func() { Out = nil }()
@@ -34,8 +34,12 @@ func TestMenuSelection(t *testing.T) {
 		{"a\n", []string{"system", "cpu", "disk"}, true},
 		{"\n", []string{"system", "cpu", "disk"}, true},
 		{"cpu, disk\n", []string{"cpu", "disk"}, true},
+		{"0\n", nil, false},
 		{"q\n", nil, false},
+		// Неверный номер не завершает меню: оно спрашивает снова и получает
+		// EOF из тестового читателя.
 		{"99\n", nil, false},
+		{"99\n2\n", []string{"cpu"}, true},
 	}
 	for _, c := range cases {
 		got, ok := Menu(testItems(), strings.NewReader(c.input))
@@ -46,23 +50,6 @@ func TestMenuSelection(t *testing.T) {
 		if strings.Join(got, ",") != strings.Join(c.want, ",") {
 			t.Errorf("Menu(%q) = %v, want %v", c.input, got, c.want)
 		}
-	}
-}
-
-// По умолчанию (пустой ввод) вопрос должен трактоваться как «нет»:
-// сохранение файлов не должно происходить случайно.
-func TestConfirm(t *testing.T) {
-	Out = io.Discard
-	defer func() { Out = nil }()
-
-	if !Confirm("save?", strings.NewReader("y\n")) {
-		t.Error("y must confirm")
-	}
-	if Confirm("save?", strings.NewReader("\n")) {
-		t.Error("empty answer must default to no")
-	}
-	if Confirm("save?", nil) {
-		t.Error("nil input must not confirm")
 	}
 }
 

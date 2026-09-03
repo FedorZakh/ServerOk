@@ -10,10 +10,12 @@
 //
 // Порядок работы:
 //  1. разбираем флаги, настраиваем цвет и подавляем лишние логи;
-//  2. строим реестр тестов и выбираем нужные (флаг -test, -all или меню);
-//  3. создаём контекст с обработкой Ctrl+C и общим лимитом времени;
-//  4. запускаем runner.Run, который заполняет отчёт и печатает секции;
-//  5. сохраняем JSON/Markdown, если попросили.
+//  2. строим реестр тестов;
+//  3. если тесты заданы флагом (-test, -all) или терминала нет — один прогон
+//     и выход;
+//  4. иначе крутим меню: прогон, снова меню, и так пока пользователь не
+//     выберет 0 или не нажмёт Ctrl+C;
+//  5. сохраняем JSON/Markdown, если их запросили флагами.
 package main
 
 import (
@@ -42,25 +44,34 @@ var version = "dev"
 // выводу видно, чем он получен.
 const usageHint = "bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)"
 
+// runConfig — всё, что нужно одному прогону, кроме списка тестов. Собирается
+// один раз из флагов и переиспользуется на каждой итерации меню.
+type runConfig struct {
+	opts     runner.Options
+	timeout  time.Duration
+	jsonPath string
+	mdPath   string
+	quiet    bool
+}
+
 func main() {
 	var (
-		all        = flag.Bool("all", false, "run every test without showing the menu")
-		testList   = flag.String("test", "", "comma-separated tests to run (see -list)")
-		nodes      = flag.String("nodes", "default", "speedtest node set: fast, default, full, or comma-separated server IDs")
-		diskSize   = flag.String("disk-size", "1G", "disk test size, e.g. 512M or 2G")
-		diskPath   = flag.String("disk-path", "", "directory for the disk test (default: working directory)")
-		cpuTime    = flag.Float64("cpu-time", 2.5, "seconds spent per CPU workload and mode")
-		jsonOut    = flag.String("json", "", "write the report as JSON to this file")
-		mdOut      = flag.String("md", "", "write the report as Markdown to this file")
-		noColor    = flag.Bool("no-color", false, "disable ANSI colors")
-		noIPv6     = flag.Bool("no-ipv6", false, "skip all IPv6 lookups")
-		quiet      = flag.Bool("quiet", false, "suppress terminal output (use with -json/-md)")
-		timeout    = flag.Duration("timeout", 30*time.Minute, "overall time budget")
-		testTmo    = flag.Duration("test-timeout", 20*time.Minute, "per-test time limit")
-		traceHops  = flag.Int("trace-hops", 15, "maximum traceroute hops")
-		listTests  = flag.Bool("list", false, "list available tests and exit")
-		showVer    = flag.Bool("version", false, "print the version and exit")
-		yesConfirm = flag.Bool("yes", false, "answer yes to prompts (e.g. saving the report)")
+		all       = flag.Bool("all", false, "run every test without showing the menu")
+		testList  = flag.String("test", "", "comma-separated tests to run (see -list)")
+		nodes     = flag.String("nodes", "default", "speedtest node set: fast, default, full, or comma-separated server IDs")
+		diskSize  = flag.String("disk-size", "1G", "disk test size, e.g. 512M or 2G")
+		diskPath  = flag.String("disk-path", "", "directory for the disk test (default: working directory)")
+		cpuTime   = flag.Float64("cpu-time", 2.5, "seconds spent per CPU workload and mode")
+		jsonOut   = flag.String("json", "", "write the report as JSON to this file")
+		mdOut     = flag.String("md", "", "write the report as Markdown to this file")
+		noColor   = flag.Bool("no-color", false, "disable ANSI colors")
+		noIPv6    = flag.Bool("no-ipv6", false, "skip all IPv6 lookups")
+		quiet     = flag.Bool("quiet", false, "suppress terminal output (use with -json/-md)")
+		timeout   = flag.Duration("timeout", 30*time.Minute, "overall time budget per run")
+		testTmo   = flag.Duration("test-timeout", 20*time.Minute, "per-test time limit")
+		traceHops = flag.Int("trace-hops", 15, "maximum traceroute hops")
+		listTests = flag.Bool("list", false, "list available tests and exit")
+		showVer   = flag.Bool("version", false, "print the version and exit")
 	)
 	flag.Usage = printUsage
 	flag.Parse()
@@ -95,24 +106,81 @@ func main() {
 		fail(err)
 	}
 
+	cfg := runConfig{
+		opts: runner.Options{
+			DiskSize:  size,
+			DiskPath:  *diskPath,
+			Nodes:     *nodes,
+			Timeout:   *testTmo,
+			Quiet:     *quiet,
+			SkipIPv6:  *noIPv6,
+			CPUSecs:   *cpuTime,
+			TraceHops: *traceHops,
+		},
+		timeout:  *timeout,
+		jsonPath: *jsonOut,
+		mdPath:   *mdOut,
+		quiet:    *quiet,
+	}
+
+	// Меню показывается, только когда набор тестов не задан флагами и есть
+	// терминал. Всё остальное (-test, -all, запуск из cron или curl | bash) —
+	// один прогон без вопросов.
 	in, interactive := ui.Input()
-	selected, ok := chooseTests(registry, *testList, *all, interactive, in)
-	if !ok {
+	if *testList != "" || *all || !interactive {
+		runTests(selectByFlags(registry, *testList), cfg)
 		return
 	}
 
-	rep := &report.Report{Version: version, Generated: time.Now()}
-	opts := runner.Options{
-		DiskSize:  size,
-		DiskPath:  *diskPath,
-		Nodes:     *nodes,
-		Timeout:   *testTmo,
-		Quiet:     *quiet,
-		SkipIPv6:  *noIPv6,
-		CPUSecs:   *cpuTime,
-		TraceHops: *traceHops,
+	items := make([]ui.MenuItem, 0, len(registry.All()))
+	for _, t := range registry.All() {
+		items = append(items, ui.MenuItem{ID: t.ID, Title: t.Title})
 	}
+	if !*quiet {
+		report.Banner(version, usageHint)
+	}
+	// Программа живёт, пока её не остановит сам пользователь: после каждого
+	// прогона возвращаемся в меню, а выходим только по пункту 0 (или Ctrl+C).
+	for {
+		ids, ok := ui.Menu(items, in)
+		if !ok {
+			return
+		}
+		sel, err := registry.Select(ids)
+		if err != nil {
+			// Опечатка в выборе не повод завершать работу — спрашиваем снова.
+			ui.Warn(err.Error())
+			continue
+		}
+		if !runTests(sel, cfg) {
+			// Прогон прервали сигналом: это и есть запрошенный выход.
+			return
+		}
+	}
+}
 
+// selectByFlags выбирает тесты, когда меню не показывается: явный -test имеет
+// приоритет, иначе (-all или отсутствие терминала) выполняются все тесты.
+func selectByFlags(reg *runner.Registry, testList string) []runner.Test {
+	if testList == "" {
+		return reg.All()
+	}
+	sel, err := reg.Select(splitList(testList))
+	if err != nil {
+		fail(err)
+	}
+	return sel
+}
+
+// runTests выполняет один прогон: печатает шапку, заполняет отчёт, показывает
+// итог и сохраняет файлы, если их запросили флагами.
+//
+// Возвращает false, если прогон прервали сигналом. В режиме меню это значит
+// «выходим из программы», а не «возвращаемся к выбору тестов».
+//
+// Обработчик сигналов ставится только на время прогона: пока программа ждёт
+// ввод в меню, Ctrl+C должен завершать процесс штатным образом.
+func runTests(sel []runner.Test, c runConfig) bool {
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	// После первого сигнала возвращаем обработчик по умолчанию: второй Ctrl+C
@@ -123,21 +191,22 @@ func main() {
 		stop()
 	}()
 	ctx := sigCtx
-	if *timeout > 0 {
+	if c.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(sigCtx, *timeout)
+		ctx, cancel = context.WithTimeout(sigCtx, c.timeout)
 		defer cancel()
 	}
 
 	// С этого момента начинается собственно прогон.
+	rep := &report.Report{Version: version, Generated: time.Now()}
 	start := time.Now()
-	if !*quiet {
+	if !c.quiet {
 		report.Banner(version, usageHint)
 	}
-	runner.Run(ctx, selected, rep, opts)
+	runner.Run(ctx, sel, rep, c.opts)
 	rep.Duration = time.Since(start).Round(time.Second).String()
 
-	if !*quiet {
+	if !c.quiet {
 		report.PrintFailures(rep)
 		ui.Blank()
 		ui.Divider()
@@ -146,57 +215,17 @@ func main() {
 			ui.Warn("run interrupted — the report above is partial")
 		}
 	}
-	saveOutputs(rep, *jsonOut, *mdOut, interactive && !*quiet, *yesConfirm, *quiet, in)
+	saveOutputs(rep, c.jsonPath, c.mdPath, c.quiet)
+	return sigCtx.Err() == nil
 }
 
-// chooseTests решает, какие тесты запускать.
-//
-// Приоритет: явный -test, затем -all. Если ничего не задано и терминал есть —
-// показываем меню; если терминала нет (curl | bash, cron, CI) — молча
-// выполняем все тесты, потому что спрашивать некого.
-func chooseTests(reg *runner.Registry, testList string, all, interactive bool, in io.Reader) ([]runner.Test, bool) {
-	switch {
-	case testList != "":
-		sel, err := reg.Select(splitList(testList))
-		if err != nil {
-			fail(err)
-		}
-		return sel, true
-	case all, !interactive:
-		// Неинтерактивный запуск (curl | bash, cron) выполняет все тесты.
-		return reg.All(), true
-	}
-
-	report.Banner(version, usageHint)
-	items := make([]ui.MenuItem, 0, len(reg.All()))
-	for _, t := range reg.All() {
-		items = append(items, ui.MenuItem{ID: t.ID, Title: t.Title})
-	}
-	ids, ok := ui.Menu(items, in)
-	if !ok {
-		return nil, false
-	}
-	sel, err := reg.Select(ids)
-	if err != nil {
-		fail(err)
-	}
-	return sel, true
-}
-
-// saveOutputs сохраняет отчёт в запрошенные форматы.
-//
-// Если прогон был интерактивным и форматы не указаны, предлагаем сохранить —
-// иначе результат живёт только в скроллбэке терминала.
+// saveOutputs сохраняет отчёт в форматы, запрошенные флагами -json и -md.
+// Без этих флагов ничего не пишется: отчёт рассчитан на чтение в терминале.
 //
 // В режиме -quiet в stdout не уходит ничего: этот режим существует ради
 // машинного использования (cron, мониторинг), и любая лишняя строка ломала бы
 // разбор. Ошибки записи при этом всё равно сообщаются — в stderr.
-func saveOutputs(rep *report.Report, jsonPath, mdPath string, offer, assumeYes, quiet bool, in io.Reader) {
-	if jsonPath == "" && mdPath == "" && offer {
-		if assumeYes || ui.Confirm("Save the report to serverok-report.json/.md?", in) {
-			jsonPath, mdPath = "serverok-report.json", "serverok-report.md"
-		}
-	}
+func saveOutputs(rep *report.Report, jsonPath, mdPath string, quiet bool) {
 	// Общая обёртка для обоих форматов: пишем файл и сообщаем о результате.
 	write := func(kind, path string, save func(*report.Report, string) error) {
 		if path == "" {
@@ -257,8 +286,9 @@ func printUsage() {
 Usage:
   serverok [flags]
 
-  With no flags and a terminal attached it shows the test menu.
-  Without a terminal (curl | bash, cron) it runs every test.
+  With no flags and a terminal attached it shows the test menu and keeps
+  returning to it after every run; it exits when you pick 0 or press Ctrl+C.
+  Without a terminal (curl | bash, cron) it runs every test once.
 
 Examples:
   serverok                        # interactive menu

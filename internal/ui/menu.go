@@ -1,11 +1,14 @@
 package ui
 
-// menu.go — интерактивный выбор тестов и подтверждение «да/нет».
+// menu.go — интерактивный выбор тестов.
 //
 // Ключевая особенность: ввод читается не обязательно из stdin. Основной способ
 // запуска — `curl … | bash`, где stdin занят пайпом от curl; в этом случае
 // Input() открывает /dev/tty, и меню продолжает работать. Если терминала нет
 // вообще (cron, CI), main просто прогоняет все тесты без меню.
+//
+// Меню показывается заново после каждого прогона: программа завершается лишь
+// по пункту 0 или по Ctrl+C.
 
 import (
 	"bufio"
@@ -39,8 +42,9 @@ func Input() (*os.File, bool) {
 }
 
 // Menu печатает нумерованный список тестов и возвращает выбранные ID.
-// Второе значение — false, если пользователь отказался от запуска (q или
-// пустой/некорректный выбор).
+// Второе значение — false, только если пользователь решил выйти (пункт 0) или
+// ввод закончился: программа возвращается в меню после каждого прогона, и
+// опечатка не должна её завершать — на неверный ввод меню спрашивает снова.
 //
 // Принимается io.Reader, а не *os.File, чтобы меню можно было прогонять в
 // тестах через strings.Reader (см. menu_test.go).
@@ -66,65 +70,56 @@ func Menu(items []MenuItem, in io.Reader) ([]string, bool) {
 		}
 		Line(left + strings.Repeat(" ", pad) + right)
 	}
-	Line(" " + Green("a") + ") Run all tests" + strings.Repeat(" ", 21) + Green("q") + ") Quit")
+	// Последняя строка выравнивается по тем же колонкам, что и пункты выше.
+	quitLeft := " " + Green("a") + ") Run all tests"
+	Line(quitLeft + strings.Repeat(" ", 36-visibleLen(quitLeft)) + Green("0") + ") Quit")
 	Divider()
-	write(Yellow(" Select (e.g. 1,3,5 or a): "))
 
+	// Читатель создаётся один раз: bufio буферизует ввод, и новый читатель на
+	// каждой попытке терял бы уже прочитанное из tty.
 	reader := bufio.NewReader(in)
-	line, err := reader.ReadString('\n')
-	// Пустой ввод с ошибкой (закрытый tty, EOF) — выходим, не запуская ничего.
-	if err != nil && line == "" {
-		return nil, false
-	}
-	choice := strings.TrimSpace(strings.ToLower(line))
-	switch choice {
-	case "q", "quit", "exit":
-		return nil, false
-	case "", "a", "all":
-		// Enter без ввода трактуется как «запустить всё» — самый частый сценарий.
-		ids := make([]string, 0, len(items))
-		for _, it := range items {
-			ids = append(ids, it.ID)
+	for {
+		write(Yellow(" Select (e.g. 1,3,5 or a): "))
+		line, err := reader.ReadString('\n')
+		// Пустой ввод с ошибкой (закрытый tty, EOF) — выходим, не запуская ничего.
+		if err != nil && line == "" {
+			return nil, false
 		}
-		return ids, true
-	}
-
-	// Разбор «1,3,5», «1 3 5» и «cpu,disk» — номера и ID можно смешивать.
-	var ids []string
-	for _, part := range strings.FieldsFunc(choice, func(r rune) bool { return r == ',' || r == ' ' }) {
-		n := atoi(part)
-		switch {
-		case n >= 1 && n <= len(items):
-			ids = append(ids, items[n-1].ID)
-		default:
-			// Не число (или число вне диапазона) — пробуем как идентификатор теста.
+		choice := strings.TrimSpace(strings.ToLower(line))
+		switch choice {
+		case "0", "q", "quit", "exit":
+			return nil, false
+		case "", "a", "all":
+			// Enter без ввода трактуется как «запустить всё» — самый частый сценарий.
+			ids := make([]string, 0, len(items))
 			for _, it := range items {
-				if it.ID == part {
-					ids = append(ids, it.ID)
+				ids = append(ids, it.ID)
+			}
+			return ids, true
+		}
+
+		// Разбор «1,3,5», «1 3 5» и «cpu,disk» — номера и ID можно смешивать.
+		var ids []string
+		for _, part := range strings.FieldsFunc(choice, func(r rune) bool { return r == ',' || r == ' ' }) {
+			n := atoi(part)
+			switch {
+			case n >= 1 && n <= len(items):
+				ids = append(ids, items[n-1].ID)
+			default:
+				// Не число (или число вне диапазона) — пробуем как идентификатор теста.
+				for _, it := range items {
+					if it.ID == part {
+						ids = append(ids, it.ID)
+					}
 				}
 			}
 		}
+		if len(ids) == 0 {
+			Warn("nothing selected")
+			continue
+		}
+		return ids, true
 	}
-	if len(ids) == 0 {
-		Warn("nothing selected")
-		return nil, false
-	}
-	return ids, true
-}
-
-// Confirm задаёт вопрос «да/нет»; по умолчанию (пустой ввод) — «нет».
-// Используется для предложения сохранить отчёт после интерактивного прогона.
-func Confirm(question string, in io.Reader) bool {
-	if in == nil {
-		return false
-	}
-	write(Yellow(" " + question + " [y/N]: "))
-	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil {
-		return false
-	}
-	answer := strings.TrimSpace(strings.ToLower(line))
-	return answer == "y" || answer == "yes"
 }
 
 // itoa — перевод номера пункта в строку без импорта strconv.

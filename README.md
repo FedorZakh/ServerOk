@@ -106,9 +106,12 @@ rm "$(go env GOPATH)/bin/serverok"
  3) Memory Benchmark                 8) Streaming & AI Service Unblock
  4) Disk I/O Speed                   9) Routing, Latency & Ports
  5) Network Speedtest
- a) Run all tests                    q) Quit
+ a) Run all tests                   0) Quit
  Select (e.g. 1,3,5 or a):
 ```
+
+The menu comes back after every run, so you can keep picking tests; the tool
+exits when you choose `0` or press Ctrl+C.
 
 ## Tests
 
@@ -140,10 +143,9 @@ rm "$(go env GOPATH)/bin/serverok"
   -no-color            disable ANSI colors
   -no-ipv6             skip all IPv6 lookups
   -quiet               no terminal output (use with -json/-md)
-  -timeout 30m         overall time budget
+  -timeout 30m         time budget for one run
   -test-timeout 20m    per-test time limit
   -trace-hops 15       maximum traceroute hops
-  -yes                 answer yes to prompts
   -version
 ```
 
