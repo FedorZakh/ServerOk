@@ -22,19 +22,21 @@ die() { red "error: $*"; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1; }
 
 # --install [dir] keeps the binary instead of running it from a temp dir.
-# Script options are consumed here; everything else is re-set as the positional
-# parameters so arguments with spaces survive and nothing gets glob-expanded.
-forwarded=""
-for arg in "$@"; do
+# Script options are consumed here; every other argument is rotated to the end
+# of the positional parameters. Collecting them in a string and re-splitting it
+# would break exactly the arguments worth forwarding: -disk-path with a space
+# in it, or anything containing a glob character.
+argc=$#
+while [ "$argc" -gt 0 ]; do
+	arg="$1"; shift
+	argc=$((argc - 1))
 	case "$arg" in
 		--install) INSTALL_DIR="/usr/local/bin" ;;
 		--install=*) INSTALL_DIR="${arg#--install=}" ;;
 		--no-verify) NO_VERIFY=1 ;;
-		*) forwarded="$forwarded $arg" ;;
+		*) set -- "$@" "$arg" ;;
 	esac
 done
-# shellcheck disable=SC2086
-set -- $forwarded
 
 detect_platform() {
 	os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -124,7 +126,10 @@ ARCHIVE="${BINARY}_${PLATFORM}.tar.gz"
 BASE="${SERVERTESTER_BASE_URL:-https://github.com/$REPO/releases/download/$TAG}"
 
 info "downloading $ARCHIVE"
-fetch "$BASE/$ARCHIVE" "$TMPDIR_ST/$ARCHIVE" || die "download failed — does the release contain $ARCHIVE?"
+if ! fetch "$BASE/$ARCHIVE" "$TMPDIR_ST/$ARCHIVE"; then
+	red "cannot download $BASE/$ARCHIVE"
+	die "release $TAG has no $ARCHIVE (yet) — wait for the release to finish publishing, or pin a known one with SERVERTESTER_VERSION=vX.Y.Z"
+fi
 if fetch "$BASE/checksums.txt" "$TMPDIR_ST/checksums.txt" 2>/dev/null; then
 	verify_checksum "$TMPDIR_ST/$ARCHIVE" "$TMPDIR_ST/checksums.txt" "$ARCHIVE"
 fi
