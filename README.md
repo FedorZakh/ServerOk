@@ -121,7 +121,7 @@ exits when you choose `0` or press Ctrl+C.
 | **CPU Benchmark** | AES-256-GCM, SHA-256, gzip and a prime sieve, each single- and multi-threaded, plus a normalized score (≈1000 ≙ one modern server core) and the multi-core scaling factor |
 | **Memory Benchmark** | Sequential write/read/copy bandwidth and random-access latency (pointer chase) |
 | **Disk I/O Speed** | Three sequential 1 GiB writes with `fsync` (the `dd conv=fdatasync` equivalent), their average, and 4K random-write IOPS |
-| **Network Speedtest** | Upload, download and latency against speedtest.net nodes worldwide; servers are found by city keyword and dead sponsors are skipped automatically |
+| **Network Speedtest** | Upload, download and latency, either against speedtest.net nodes (worldwide or one region — Europe, North America, Asia) or against the nearest Cloudflare edge. Ookla servers are found by city keyword, so dead sponsors are skipped automatically |
 | **IP Location & Registration** | Geolocation of the IPv4/IPv6 address (ASN, ISP, city, hosting/proxy flags) **and the RDAP record: network name, CIDR, allocation type, registry, registrant organization, registration dates and the abuse contact** |
 | **IP Reputation (DNSBL)** | 14 blocklists (Spamhaus, Barracuda, SpamCop, SORBS, UCEPROTECT, …). Zones that refuse public resolvers are reported as inconclusive, not as "listed" |
 | **Streaming & AI Service Unblock** | Netflix (full / originals-only / blocked), YouTube Premium, Disney+, Prime Video, Spotify, ChatGPT, Claude, TikTok, Steam — with the region each one resolves you to. A service that answers but does not reveal a region is reported as `Unknown`, never as a confident `Yes` |
@@ -133,8 +133,11 @@ exits when you choose `0` or press Ctrl+C.
   -all                 run every test without showing the menu
   -test cpu,disk,ip    run specific tests (see -list)
   -list                list available tests
-  -nodes fast|default|full|<ids>
-                       speedtest node set (default: 9 worldwide nodes)
+  -nodes fast|default|full|us|eu|asia|<ids>
+                       speedtest node sets, combinable: -nodes eu,asia
+                       (default: 9 worldwide nodes)
+  -speed-method ookla|cloudflare
+                       how to measure speed (default: ookla)
   -disk-size 1G        size of the disk test file
   -disk-path DIR       where to run the disk test (default: working directory)
   -cpu-time 2.5        seconds per CPU workload and mode
@@ -153,15 +156,34 @@ Examples:
 
 ```bash
 serverok -all -nodes fast              # everything, quick speedtest
+serverok -test speedtest -nodes eu     # speed to Europe only (us, asia too)
+serverok -test speedtest -nodes us,asia          # two regions in one run
+serverok -test speedtest -speed-method cloudflare  # nearest CDN edge, ~20 s
 serverok -test ip,blacklist            # who owns this IP, and is it clean?
 serverok -all -quiet -json report.json # for cron and dashboards
 ```
+
+## Choosing how to measure speed
+
+Two methods answer two different questions, so the tool ships both:
+
+| Method | What it tells you | Cost |
+|---|---|---|
+| `ookla` (default) | How the server reaches the rest of the world — real transit to a named city. Pick a region with `-nodes us`, `-nodes eu` or `-nodes asia` instead of paying for all nine worldwide nodes | ~1 min per node |
+| `cloudflare` | What a visitor pulling from a CDN gets. Anycast, so it always lands on the nearest Cloudflare edge (the colo code is in the report) and no region can be chosen | ~15 s total |
+
+Picking the speedtest from the interactive menu asks which of these to run;
+`-nodes` or `-speed-method` on the command line skips the question.
 
 ## Notes
 
 * **Root is not required.** Only the traceroute test benefits from it: without
   root the tool uses the system `traceroute` binary, and skips the test if there
   is none. Latency probing falls back from ICMP to a TCP handshake automatically.
+* **The Cloudflare method is anycast**: it always measures against the nearest
+  Cloudflare edge (the colo code appears in the report), so it cannot be pointed
+  at a region — use `-nodes us|eu|asia` with the Ookla method for that. Running
+  it several times in a row may earn a temporary rate limit.
 * **The disk test writes to the current directory** (override with `-disk-path`).
   It needs ~1.5 GiB free, otherwise it shrinks the test file to 256 MiB and says
   so. The temp file is always removed, including on Ctrl+C.

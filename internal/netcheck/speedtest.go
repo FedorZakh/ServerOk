@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/showwin/speedtest-go/speedtest"
@@ -23,6 +24,30 @@ import (
 // мёртвые отсеиваются HTTP-пробой, а сервер, отдавший нулевую скорость,
 // считается сломанным, и берётся следующий.
 
+// Способ замера выбирается пользователем: у Ookla и Cloudflare разные
+// сильные стороны, и подменять один другим нельзя (см. speedcf.go).
+const (
+	MethodOokla      = report.MethodOokla
+	MethodCloudflare = report.MethodCloudflare
+)
+
+// Methods возвращает поддерживаемые способы замера — для справки по флагам и
+// для меню выбора.
+func Methods() []string { return []string{MethodOokla, MethodCloudflare} }
+
+// NormalizeMethod приводит значение флага к каноническому виду и возвращает
+// пустую строку, если способ неизвестен. Проверять значение нужно сразу при
+// разборе флагов: узнать об опечатке через двадцать минут прогона — плохо.
+func NormalizeMethod(method string) string {
+	switch strings.ToLower(strings.TrimSpace(method)) {
+	case "", MethodOokla, "speedtest", "speedtest.net":
+		return MethodOokla
+	case MethodCloudflare, "cf":
+		return MethodCloudflare
+	}
+	return ""
+}
+
 // node — одна точка измерения.
 type node struct {
 	Label   string
@@ -31,7 +56,12 @@ type node struct {
 }
 
 // Наборы точек: fast — быстрая проверка (3 точки), default — как в bench.sh
-// (9 точек по миру), full — расширенный, включая Китай и Индию.
+// (9 точек по миру), full — расширенный, включая Китай и Индию. Отдельно
+// заданы региональные наборы: гонять все девять точек ради одного вопроса
+// «как канал до Европы» долго и незачем.
+//
+// В региональных наборах нет пункта «ближайший сервер»: он выбирается по
+// расстоянию и к запрошенному региону отношения не имеет.
 var (
 	fastSet = []node{
 		{"Speedtest.net", "", ""},
@@ -49,6 +79,29 @@ var (
 		{"Singapore, SG", "Singapore", "Singapore"},
 		{"Tokyo, JP", "Tokyo", "Japan"},
 	}
+	usSet = []node{
+		{"Los Angeles, US", "Los Angeles", "United States"},
+		{"Seattle, US", "Seattle", "United States"},
+		{"Dallas, US", "Dallas", "United States"},
+		{"Chicago, US", "Chicago", "United States"},
+		{"New York, US", "New York", "United States"},
+		{"Miami, US", "Miami", "United States"},
+	}
+	euSet = []node{
+		{"London, UK", "London", "United Kingdom"},
+		{"Amsterdam, NL", "Amsterdam", "Netherlands"},
+		{"Frankfurt, DE", "Frankfurt", "Germany"},
+		{"Paris, FR", "Paris", "France"},
+		{"Warsaw, PL", "Warsaw", "Poland"},
+		{"Stockholm, SE", "Stockholm", "Sweden"},
+	}
+	asiaSet = []node{
+		{"Hong Kong", "Hong Kong", "Hong Kong"},
+		{"Singapore, SG", "Singapore", "Singapore"},
+		{"Tokyo, JP", "Tokyo", "Japan"},
+		{"Seoul, KR", "Seoul", "Korea"},
+		{"Mumbai, IN", "Mumbai", "India"},
+	}
 	fullSet = append(append([]node{}, defaultSet...), []node{
 		{"Frankfurt, DE", "Frankfurt", "Germany"},
 		{"London, UK", "London", "United Kingdom"},
@@ -60,10 +113,25 @@ var (
 	}...)
 )
 
+// nodeSets — наборы, доступные по имени во флаге -nodes. Синонимы нужны для
+// удобства: «europe» и «eu» — одно и то же, промахнуться нельзя.
 var nodeSets = map[string][]node{
-	"fast":    fastSet,
-	"default": defaultSet,
-	"full":    fullSet,
+	"fast":          fastSet,
+	"default":       defaultSet,
+	"full":          fullSet,
+	"us":            usSet,
+	"usa":           usSet,
+	"america":       usSet,
+	"north-america": usSet,
+	"eu":            euSet,
+	"europe":        euSet,
+	"asia":          asiaSet,
+}
+
+// SetNames возвращает канонические имена наборов в порядке «от быстрого к
+// подробному» — для справки по флагам и для меню выбора региона.
+func SetNames() []string {
+	return []string{"fast", "default", "full", "us", "eu", "asia"}
 }
 
 // nodeTimeout — потолок времени на одну точку, включая перебор запасных
@@ -71,13 +139,26 @@ var nodeSets = map[string][]node{
 // -test-timeout, иначе тест оборвётся на середине.
 const nodeTimeout = 90 * time.Second
 
-// Speedtest измеряет отдачу, приём и задержку по набору точек.
+// Speedtest измеряет отдачу, приём и задержку выбранным способом: method —
+// ookla или cloudflare, set — набор точек (для Cloudflare не применяется,
+// туда всегда идёт ближайший edge-узел).
 //
 // onResult вызывается после каждой точки — благодаря этому строки таблицы
 // появляются на экране по мере измерения, а не спустя минуты молчания.
 // Если время вышло, возвращается уже измеренное: частичная таблица полезнее
 // пустой.
-func Speedtest(ctx context.Context, set string, onResult func(report.SpeedNode), status func(string, ...any)) (*report.Speedtest, error) {
+func Speedtest(ctx context.Context, method, set string, onResult func(report.SpeedNode), status func(string, ...any)) (*report.Speedtest, error) {
+	switch NormalizeMethod(method) {
+	case MethodOokla:
+		return ooklaSpeedtest(ctx, set, onResult, status)
+	case MethodCloudflare:
+		return cloudflareSpeedtest(ctx, onResult, status)
+	}
+	return nil, fmt.Errorf("unknown speedtest method %q (want one of %s)", method, strings.Join(Methods(), ", "))
+}
+
+// ooklaSpeedtest — замер по набору городов через инфраструктуру speedtest.net.
+func ooklaSpeedtest(ctx context.Context, set string, onResult func(report.SpeedNode), status func(string, ...any)) (*report.Speedtest, error) {
 	nodes, err := resolveSet(set)
 	if err != nil {
 		return nil, err
@@ -90,7 +171,7 @@ func Speedtest(ctx context.Context, set string, onResult func(report.SpeedNode),
 	// продолжает работать, поэтому ошибка не фатальна.
 	_, _ = base.FetchUserInfoContext(ctx)
 
-	out := &report.Speedtest{}
+	out := &report.Speedtest{Method: MethodOokla, Set: strings.ToLower(strings.TrimSpace(set))}
 	for _, n := range nodes {
 		if ctx.Err() != nil {
 			// Время вышло: отдаём уже измеренные строки, а не теряем весь тест.
@@ -177,7 +258,7 @@ func measureNode(ctx context.Context, base *speedtest.Speedtest, n node) report.
 // совпадение по названию города или конкретный ID, если он задан явно.
 func pickServers(ctx context.Context, base *speedtest.Speedtest, n node) (*speedtest.Speedtest, []*speedtest.Server, error) {
 	if n.Search == "" {
-		servers, err := base.FetchServerListContext(ctx)
+		servers, err := fetchServerList(ctx, base)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -201,7 +282,7 @@ func pickServers(ctx context.Context, base *speedtest.Speedtest, n node) (*speed
 
 	client := speedtest.New()
 	client.NewUserConfig(&speedtest.UserConfig{Keyword: n.Search})
-	servers, err := client.FetchServerListContext(ctx)
+	servers, err := fetchServerList(ctx, client)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -213,6 +294,54 @@ func pickServers(ctx context.Context, base *speedtest.Speedtest, n node) (*speed
 		s.Context = client
 	}
 	return client, matched, nil
+}
+
+// Список серверов запрашивается один раз на город, и при наборе из шести
+// городов эти запросы идут почти подряд. speedtest.net на такой темп отвечает
+// HTML-страницей вместо JSON, и половина точек падала с бессмысленным
+// «invalid character '<'». Поэтому запросы списка сериализованы, разнесены во
+// времени и повторяются с возрастающей паузой.
+var (
+	listMu   sync.Mutex
+	lastList time.Time
+)
+
+const listGap = 2 * time.Second
+
+// fetchServerList запрашивает список серверов, соблюдая паузу между
+// запросами и повторяя попытку, если speedtest.net ответил не JSON.
+func fetchServerList(ctx context.Context, c *speedtest.Speedtest) (speedtest.Servers, error) {
+	listMu.Lock()
+	defer listMu.Unlock()
+
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		delay := time.Until(lastList.Add(listGap))
+		if attempt > 0 {
+			delay = time.Duration(attempt) * 3 * time.Second
+		}
+		if delay > 0 {
+			t := time.NewTimer(delay)
+			select {
+			case <-t.C:
+			case <-ctx.Done():
+				t.Stop()
+				return nil, ctx.Err()
+			}
+		}
+		servers, err := c.FetchServerListContext(ctx)
+		lastList = time.Now()
+		if err == nil {
+			return servers, nil
+		}
+		lastErr = err
+	}
+	// Разбор HTML как JSON — это и есть отказ по частоте запросов; писать в
+	// отчёт «invalid character» бессмысленно.
+	if strings.Contains(lastErr.Error(), "invalid character") {
+		return nil, errors.New("speedtest.net rate-limited the server list")
+	}
+	return nil, lastErr
 }
 
 // matchServers ранжирует найденное: сначала серверы в нужном городе, затем в
@@ -294,22 +423,51 @@ func isServerID(s string) bool {
 	return true
 }
 
-// resolveSet превращает значение флага -nodes в список точек: это либо имя
-// готового набора (fast/default/full), либо перечисленные через запятую ID
-// серверов speedtest.net.
+// ValidateSet проверяет значение флага -nodes, ничего не измеряя, — чтобы
+// опечатка вскрылась при разборе флагов, а не в середине прогона.
+func ValidateSet(set string) error {
+	_, err := resolveSet(set)
+	return err
+}
+
+// resolveSet превращает значение флага -nodes в список точек. Значение —
+// перечисленные через запятую имена наборов (fast/default/full/us/eu/asia) и
+// числовые ID серверов speedtest.net; их можно смешивать, например
+// «eu,asia» или «us,12345».
+//
+// Повторы отбрасываются: «eu,europe» или пересекающиеся наборы не должны
+// приводить к тому, что один и тот же город меряется дважды.
 func resolveSet(set string) ([]node, error) {
 	set = strings.TrimSpace(set)
 	if set == "" {
 		set = "default"
 	}
-	if nodes, ok := nodeSets[strings.ToLower(set)]; ok {
-		return nodes, nil
-	}
 	var out []node
-	for _, id := range strings.Split(set, ",") {
-		if id = strings.TrimSpace(id); id != "" {
-			out = append(out, node{Label: "Server " + id, Search: id})
+	seen := map[string]bool{}
+	add := func(n node) {
+		key := n.Label + "|" + n.Search
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, n)
 		}
+	}
+	for _, part := range strings.Split(set, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if nodes, ok := nodeSets[strings.ToLower(part)]; ok {
+			for _, n := range nodes {
+				add(n)
+			}
+			continue
+		}
+		if isServerID(part) {
+			add(node{Label: "Server " + part, Search: part})
+			continue
+		}
+		return nil, fmt.Errorf("unknown speedtest node set %q (want one of %s, or a server ID)",
+			part, strings.Join(SetNames(), ", "))
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("unknown speedtest node set %q", set)

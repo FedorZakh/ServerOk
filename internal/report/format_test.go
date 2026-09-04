@@ -45,3 +45,17 @@ func TestJoinNonEmpty(t *testing.T) {
 		t.Errorf("JoinNonEmpty = %q", got)
 	}
 }
+
+func TestSpeedMethodLabel(t *testing.T) {
+	if got := SpeedMethodLabel(MethodOokla, "eu"); got != "Ookla (speedtest.net) · nodes: eu" {
+		t.Errorf("ookla label = %q", got)
+	}
+	// Пустой способ — это способ по умолчанию, а не «неизвестно».
+	if got := SpeedMethodLabel("", ""); got != "Ookla (speedtest.net) · nodes: default" {
+		t.Errorf("default label = %q", got)
+	}
+	// У Cloudflare узел всегда один, набор точек к нему неприменим.
+	if got := SpeedMethodLabel(MethodCloudflare, "eu"); got != "Cloudflare (nearest edge)" {
+		t.Errorf("cloudflare label = %q", got)
+	}
+}

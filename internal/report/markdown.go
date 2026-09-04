@@ -83,7 +83,9 @@ func Markdown(r *Report) string {
 	}
 
 	if s := r.Speedtest; s != nil {
-		b.WriteString("## Speedtest\n\n| Node | Upload | Download | Latency |\n|---|---|---|---|\n")
+		b.WriteString("## Speedtest\n\n")
+		fmt.Fprintf(&b, "Method: %s\n\n", SpeedMethodLabel(s.Method, s.Set))
+		b.WriteString("| Node | Upload | Download | Latency |\n|---|---|---|---|\n")
 		for _, n := range s.Nodes {
 			if n.Failed {
 				fmt.Fprintf(&b, "| %s | Test failed | | |\n", n.Name)

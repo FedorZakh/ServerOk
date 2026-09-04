@@ -146,9 +146,20 @@ type DiskIO struct {
 	ReducedSize bool      `json:"reduced_size,omitempty"`
 }
 
-// Speedtest — по строке на каждый измеренный узел speedtest.net.
+// Способы замера скорости. Значения попадают в JSON, поэтому они
+// зафиксированы здесь, рядом с моделью, а не в netcheck.
+const (
+	MethodOokla      = "ookla"      // серверы speedtest.net по городам
+	MethodCloudflare = "cloudflare" // ближайший edge-узел Cloudflare
+)
+
+// Speedtest — по строке на каждый измеренный узел. Method и Set говорят,
+// чем и по какому набору точек мерили: без этого две таблицы с разными
+// цифрами невозможно сравнивать.
 type Speedtest struct {
-	Nodes []SpeedNode `json:"nodes"`
+	Method string      `json:"method,omitempty"`
+	Set    string      `json:"node_set,omitempty"`
+	Nodes  []SpeedNode `json:"nodes"`
 }
 
 // SpeedNode — результат по одному узлу. Failed=true означает, что ни один

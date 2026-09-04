@@ -27,14 +27,15 @@ import (
 // Options — настройки, заданные пользователем через флаги; передаются каждому
 // тесту как есть.
 type Options struct {
-	DiskSize  uint64        // размер файла для теста диска
-	DiskPath  string        // каталог для теста диска (пусто — текущий)
-	Nodes     string        // набор узлов speedtest: fast | default | full | список ID
-	Timeout   time.Duration // лимит на ОДИН тест (флаг -test-timeout)
-	Quiet     bool          // не печатать ничего в stdout (режим -quiet для JSON/cron)
-	SkipIPv6  bool          // не трогать IPv6 (флаг -no-ipv6)
-	CPUSecs   float64       // секунд на одну нагрузку CPU в каждом режиме
-	TraceHops int           // максимум хопов traceroute
+	DiskSize    uint64        // размер файла для теста диска
+	DiskPath    string        // каталог для теста диска (пусто — текущий)
+	SpeedMethod string        // способ замера скорости: ookla | cloudflare
+	Nodes       string        // набор узлов speedtest: fast | default | full | us | eu | asia | список ID
+	Timeout     time.Duration // лимит на ОДИН тест (флаг -test-timeout)
+	Quiet       bool          // не печатать ничего в stdout (режим -quiet для JSON/cron)
+	SkipIPv6    bool          // не трогать IPv6 (флаг -no-ipv6)
+	CPUSecs     float64       // секунд на одну нагрузку CPU в каждом режиме
+	TraceHops   int           // максимум хопов traceroute
 }
 
 // Context — то, что получает реализация теста. Встраивает context.Context,

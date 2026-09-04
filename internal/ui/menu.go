@@ -146,3 +146,56 @@ func atoi(s string) int {
 	}
 	return n
 }
+
+// Choice — один вариант подменю: строка выбора и пояснение справа от неё.
+type Choice struct {
+	Label string
+	Note  string
+}
+
+// Choose печатает пронумерованный список вариантов и возвращает индекс
+// выбранного. Пустой ввод означает вариант def — так самый частый сценарий
+// проходится одним Enter, как и в главном меню.
+//
+// Второе значение — false, если ввод закончился (закрытый tty, EOF);
+// вызывающий в этом случае должен взять значение по умолчанию, а не считать
+// это отказом от прогона: подменю уточняет настройку, а не выбирает тесты.
+func Choose(title string, items []Choice, def int, in io.Reader) (int, bool) {
+	if in == nil || len(items) == 0 {
+		return def, false
+	}
+	Blank()
+	Header(title)
+	for i, it := range items {
+		line := fmt.Sprintf(" %s) %s", Green(itoa(i+1)), it.Label)
+		if i == def {
+			line += Dim(" (default)")
+		}
+		if it.Note != "" {
+			pad := 44 - visibleLen(line)
+			if pad < 1 {
+				pad = 1
+			}
+			line += strings.Repeat(" ", pad) + Dim(it.Note)
+		}
+		Line(line)
+	}
+	Divider()
+
+	reader := bufio.NewReader(in)
+	for {
+		write(Yellow(fmt.Sprintf(" Select 1-%d [%d]: ", len(items), def+1)))
+		line, err := reader.ReadString('\n')
+		if err != nil && line == "" {
+			return def, false
+		}
+		choice := strings.TrimSpace(line)
+		if choice == "" {
+			return def, true
+		}
+		if n := atoi(choice); n >= 1 && n <= len(items) {
+			return n - 1, true
+		}
+		Warn("enter a number from the list")
+	}
+}
