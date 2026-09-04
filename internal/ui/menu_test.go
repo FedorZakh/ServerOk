@@ -79,3 +79,26 @@ func TestRowAlignsOnVisibleWidth(t *testing.T) {
 		t.Errorf("Row produced %q", line)
 	}
 }
+
+// Подменю выбора: Enter означает вариант по умолчанию, номер — свой вариант,
+// а закрытый ввод не должен выглядеть как осознанный выбор.
+func TestChoose(t *testing.T) {
+	var buf bytes.Buffer
+	Out = &buf
+	defer func() { Out = nil }()
+	items := []Choice{{Label: "first"}, {Label: "second"}, {Label: "third"}}
+
+	if got, ok := Choose("pick", items, 1, strings.NewReader("\n")); got != 1 || !ok {
+		t.Errorf("empty input = (%d, %v), want (1, true)", got, ok)
+	}
+	if got, ok := Choose("pick", items, 0, strings.NewReader("3\n")); got != 2 || !ok {
+		t.Errorf("\"3\" = (%d, %v), want (2, true)", got, ok)
+	}
+	// Мусор не выбрасывает из подменю — спрашиваем снова.
+	if got, ok := Choose("pick", items, 0, strings.NewReader("9\nzz\n2\n")); got != 1 || !ok {
+		t.Errorf("retry = (%d, %v), want (1, true)", got, ok)
+	}
+	if got, ok := Choose("pick", items, 2, strings.NewReader("")); got != 2 || ok {
+		t.Errorf("closed input = (%d, %v), want (2, false)", got, ok)
+	}
+}

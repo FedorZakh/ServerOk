@@ -88,3 +88,27 @@ func JoinNonEmpty(sep string, parts ...string) string {
 	}
 	return strings.Join(out, sep)
 }
+
+// MethodTitle — человекочитаемое имя способа замера скорости.
+// Пустое значение означает способ по умолчанию.
+func MethodTitle(method string) string {
+	switch method {
+	case MethodCloudflare:
+		return "Cloudflare (nearest edge)"
+	default:
+		return "Ookla (speedtest.net)"
+	}
+}
+
+// SpeedMethodLabel описывает, чем и по какому набору точек мерили.
+// У Cloudflare набор не показывается: там всегда один узел — ближайший
+// edge, и упоминание набора только сбивало бы с толку.
+func SpeedMethodLabel(method, set string) string {
+	if method == MethodCloudflare {
+		return MethodTitle(method)
+	}
+	if set == "" {
+		set = "default"
+	}
+	return MethodTitle(method) + " · nodes: " + set
+}

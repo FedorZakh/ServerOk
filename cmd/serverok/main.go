@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/FedorZakh/ServerOk/internal/netcheck"
 	"github.com/FedorZakh/ServerOk/internal/report"
 	"github.com/FedorZakh/ServerOk/internal/runner"
 	"github.com/FedorZakh/ServerOk/internal/ui"
@@ -58,7 +59,8 @@ func main() {
 	var (
 		all       = flag.Bool("all", false, "run every test without showing the menu")
 		testList  = flag.String("test", "", "comma-separated tests to run (see -list)")
-		nodes     = flag.String("nodes", "default", "speedtest node set: fast, default, full, or comma-separated server IDs")
+		nodes     = flag.String("nodes", "default", "speedtest node sets: fast, default, full, us, eu, asia (combinable: -nodes eu,asia) or server IDs")
+		speedWith = flag.String("speed-method", "ookla", "how to measure speed: ookla (speedtest.net servers) or cloudflare (nearest edge)")
 		diskSize  = flag.String("disk-size", "1G", "disk test size, e.g. 512M or 2G")
 		diskPath  = flag.String("disk-path", "", "directory for the disk test (default: working directory)")
 		cpuTime   = flag.Float64("cpu-time", 2.5, "seconds spent per CPU workload and mode")
@@ -105,23 +107,42 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
+	// Настройки speedtest проверяются здесь, а не в тесте: узнать об опечатке
+	// в -nodes через двадцать минут прогона — обиднее всего.
+	method := netcheck.NormalizeMethod(*speedWith)
+	if method == "" {
+		fail(fmt.Errorf("unknown speed method %q (want one of %s)", *speedWith, strings.Join(netcheck.Methods(), ", ")))
+	}
+	if err := netcheck.ValidateSet(*nodes); err != nil {
+		fail(err)
+	}
 
 	cfg := runConfig{
 		opts: runner.Options{
-			DiskSize:  size,
-			DiskPath:  *diskPath,
-			Nodes:     *nodes,
-			Timeout:   *testTmo,
-			Quiet:     *quiet,
-			SkipIPv6:  *noIPv6,
-			CPUSecs:   *cpuTime,
-			TraceHops: *traceHops,
+			DiskSize:    size,
+			DiskPath:    *diskPath,
+			SpeedMethod: method,
+			Nodes:       *nodes,
+			Timeout:     *testTmo,
+			Quiet:       *quiet,
+			SkipIPv6:    *noIPv6,
+			CPUSecs:     *cpuTime,
+			TraceHops:   *traceHops,
 		},
 		timeout:  *timeout,
 		jsonPath: *jsonOut,
 		mdPath:   *mdOut,
 		quiet:    *quiet,
 	}
+
+	// flag.Visit обходит только те флаги, что пользователь действительно
+	// написал в командной строке, — значения по умолчанию сюда не попадают.
+	speedFlagsSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "nodes" || f.Name == "speed-method" {
+			speedFlagsSet = true
+		}
+	})
 
 	// Меню показывается, только когда набор тестов не задан флагами и есть
 	// терминал. Всё остальное (-test, -all, запуск из cron или curl | bash) —
@@ -152,11 +173,61 @@ func main() {
 			ui.Warn(err.Error())
 			continue
 		}
-		if !runTests(sel, cfg) {
+		run := cfg
+		// Способ замера и регион спрашиваются, только если пользователь не
+		// задал их флагами: явный флаг всегда сильнее подменю. Вопрос задаётся
+		// на каждой итерации меню — один и тот же сервер часто хочется
+		// померить сначала до Европы, потом до Азии.
+		if includes(sel, "speedtest") && !speedFlagsSet {
+			run.opts.SpeedMethod, run.opts.Nodes = askSpeedProfile(in)
+		}
+		if !runTests(sel, run) {
 			// Прогон прервали сигналом: это и есть запрошенный выход.
 			return
 		}
 	}
+}
+
+// speedProfiles — варианты подменю «чем и куда мерить скорость». Порядок
+// сверху вниз: сначала то, что выбирают чаще всего.
+//
+// Регион здесь нужен ровно затем, чтобы не гонять девять точек по всему миру,
+// когда интересно только одно направление; Cloudflare стоит последним, потому
+// что это другой способ измерения, а не другой регион (см. netcheck/speedcf.go).
+var speedProfiles = []struct {
+	choice ui.Choice
+	method string
+	nodes  string
+}{
+	{ui.Choice{Label: "Ookla · worldwide", Note: "9 nodes, as in bench.sh"}, netcheck.MethodOokla, "default"},
+	{ui.Choice{Label: "Ookla · quick", Note: "3 nodes, ~1 min"}, netcheck.MethodOokla, "fast"},
+	{ui.Choice{Label: "Ookla · Europe", Note: "London … Stockholm"}, netcheck.MethodOokla, "eu"},
+	{ui.Choice{Label: "Ookla · North America", Note: "Los Angeles … New York"}, netcheck.MethodOokla, "us"},
+	{ui.Choice{Label: "Ookla · Asia", Note: "Hong Kong … Mumbai"}, netcheck.MethodOokla, "asia"},
+	{ui.Choice{Label: "Ookla · full", Note: "16 nodes, slow"}, netcheck.MethodOokla, "full"},
+	{ui.Choice{Label: "Cloudflare · nearest edge", Note: "one node, ~20 s"}, netcheck.MethodCloudflare, ""},
+}
+
+// askSpeedProfile спрашивает способ замера перед прогоном speedtest.
+// При закрытом вводе возвращает вариант по умолчанию: подменю уточняет
+// настройку, а не решает, запускать ли тест.
+func askSpeedProfile(in io.Reader) (method, nodes string) {
+	items := make([]ui.Choice, 0, len(speedProfiles))
+	for _, p := range speedProfiles {
+		items = append(items, p.choice)
+	}
+	idx, _ := ui.Choose("Speedtest: how and where to measure", items, 0, in)
+	return speedProfiles[idx].method, speedProfiles[idx].nodes
+}
+
+// includes сообщает, попал ли тест с таким ID в выбранный набор.
+func includes(sel []runner.Test, id string) bool {
+	for _, t := range sel {
+		if t.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // selectByFlags выбирает тесты, когда меню не показывается: явный -test имеет
@@ -290,11 +361,18 @@ Usage:
   returning to it after every run; it exits when you pick 0 or press Ctrl+C.
   Without a terminal (curl | bash, cron) it runs every test once.
 
+  Picking the speedtest from the menu asks how and where to measure —
+  worldwide, one region (Europe / North America / Asia), or Cloudflare's
+  nearest edge. Passing -nodes or -speed-method skips that question.
+
 Examples:
   serverok                        # interactive menu
   serverok -all                   # run everything
   serverok -test cpu,disk,ip      # pick tests
   serverok -all -nodes fast       # quick speedtest set
+  serverok -test speedtest -nodes eu          # Europe only (also: us, asia)
+  serverok -test speedtest -nodes us,asia     # two regions in one run
+  serverok -test speedtest -speed-method cloudflare
   serverok -all -quiet -json r.json
 
 Flags:

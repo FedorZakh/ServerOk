@@ -140,7 +140,11 @@ var speedWidths = []int{19, 18, 20, 12}
 // PrintSpeedtestHeader печатает заголовок таблицы speedtest.
 // Отдельная функция нужна из-за живого вывода: заголовок печатается один раз
 // перед первой измеренной строкой.
-func PrintSpeedtestHeader() {
+//
+// Строка «Method» обязательна: цифры Ookla и Cloudflare получены по разным
+// маршрутам, и без пометки скопированный на форум отчёт вводит в заблуждение.
+func PrintSpeedtestHeader(method, set string) {
+	ui.KV("Method", SpeedMethodLabel(method, set))
 	ui.Row(speedWidths, ui.Bold("Node Name"), ui.Bold("Upload Speed"), ui.Bold("Download Speed"), ui.Bold("Latency"))
 }
 

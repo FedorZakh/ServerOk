@@ -2,7 +2,12 @@ package main
 
 // main_test.go — тесты разбора аргументов и реестра тестов.
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/FedorZakh/ServerOk/internal/netcheck"
+)
 
 // Проверяем разбор размера с суффиксами. Кейс "1.5G" важен: дробные размеры
 // используются, чтобы уместить тест на почти полном диске.
@@ -48,5 +53,45 @@ func TestRegistrySelect(t *testing.T) {
 	// Номера пунктов меню тоже должны разрешаться.
 	if sel, err := reg.Select([]string{"1"}); err != nil || sel[0].ID != "system" {
 		t.Errorf("index selection failed: %+v %v", sel, err)
+	}
+}
+
+// Подменю speedtest должно давать флагам ровно те же значения, что и
+// командная строка: каждый вариант обязан быть разрешимым набором точек.
+func TestSpeedProfiles(t *testing.T) {
+	for _, p := range speedProfiles {
+		if netcheck.NormalizeMethod(p.method) == "" {
+			t.Errorf("%q: unknown method %q", p.choice.Label, p.method)
+		}
+		if p.method == netcheck.MethodOokla {
+			if err := netcheck.ValidateSet(p.nodes); err != nil {
+				t.Errorf("%q: %v", p.choice.Label, err)
+			}
+		}
+	}
+}
+
+// Ответ пользователя должен попадать в настройки прогона, а закрытый ввод —
+// давать первый (он же рекомендованный) вариант.
+func TestAskSpeedProfile(t *testing.T) {
+	method, nodes := askSpeedProfile(strings.NewReader("3\n"))
+	if method != netcheck.MethodOokla || nodes != "eu" {
+		t.Errorf("third option = (%q, %q), want ookla/eu", method, nodes)
+	}
+	method, nodes = askSpeedProfile(strings.NewReader(""))
+	if method != speedProfiles[0].method || nodes != speedProfiles[0].nodes {
+		t.Errorf("closed input = (%q, %q), want the default profile", method, nodes)
+	}
+}
+
+// includes отвечает на вопрос «просили ли speedtest» — от него зависит, будет
+// ли задан вопрос о способе замера.
+func TestIncludes(t *testing.T) {
+	sel, err := buildRegistry().Select([]string{"cpu", "speedtest"})
+	if err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+	if !includes(sel, "speedtest") || includes(sel, "disk") {
+		t.Errorf("includes misreports the selection: %v", sel)
 	}
 }

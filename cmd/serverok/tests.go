@@ -91,12 +91,12 @@ func buildRegistry() *runner.Registry {
 					}
 					c.ClearStatus()
 					if !printed {
-						report.PrintSpeedtestHeader()
+						report.PrintSpeedtestHeader(c.Opts.SpeedMethod, c.Opts.Nodes)
 						printed = true
 					}
 					report.PrintSpeedNode(n)
 				}
-				res, err := netcheck.Speedtest(c, c.Opts.Nodes, onResult, c.Status)
+				res, err := netcheck.Speedtest(c, c.Opts.SpeedMethod, c.Opts.Nodes, onResult, c.Status)
 				if res != nil && len(res.Nodes) > 0 {
 					// Сохраняем уже измеренные строки, даже если прогон
 					// оборвался по лимиту времени теста.
