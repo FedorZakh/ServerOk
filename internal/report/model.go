@@ -31,15 +31,16 @@ type Report struct {
 	Duration  string    `json:"duration,omitempty"` // сколько занял прогон целиком
 	Tests     []string  `json:"tests_run"`          // какие тесты фактически выполнялись
 
-	System    *System    `json:"system,omitempty"`
-	CPU       *CPUBench  `json:"cpu_benchmark,omitempty"`
-	Memory    *MemBench  `json:"memory_benchmark,omitempty"`
-	Disk      *DiskIO    `json:"disk_io,omitempty"`
-	Speedtest *Speedtest `json:"speedtest,omitempty"`
-	IP        *IPInfo    `json:"ip_info,omitempty"`
-	Blacklist *Blacklist `json:"blacklist,omitempty"`
-	Unblock   *Unblock   `json:"unblock,omitempty"`
-	Network   *NetDiag   `json:"network,omitempty"`
+	System    *System     `json:"system,omitempty"`
+	CPU       *CPUBench   `json:"cpu_benchmark,omitempty"`
+	Memory    *MemBench   `json:"memory_benchmark,omitempty"`
+	Disk      *DiskIO     `json:"disk_io,omitempty"`
+	Speedtest *Speedtest  `json:"speedtest,omitempty"`
+	IP        *IPInfo     `json:"ip_info,omitempty"`
+	Blacklist *Blacklist  `json:"blacklist,omitempty"`
+	Unblock   *Unblock    `json:"unblock,omitempty"`
+	Network   *NetDiag    `json:"network,omitempty"`
+	Domain    *DomainInfo `json:"domain,omitempty"`
 
 	Failures []Failure `json:"failures,omitempty"`
 }
@@ -336,4 +337,71 @@ type TraceHop struct {
 	ASN   string  `json:"asn,omitempty"`
 	Org   string  `json:"org,omitempty"`
 	RTTMs float64 `json:"rtt_ms,omitempty"`
+}
+
+// DomainInfo — всё, что известно о домене: регистрационная запись (кто
+// регистратор, когда домен создан, когда истекает, какие NS делегированы) и
+// то, что домен отвечает в DNS прямо сейчас. Заполняется пакетом whois.
+//
+// Available=true означает, что домен свободен: тогда остальные поля пусты, и
+// это не ошибка, а ответ.
+type DomainInfo struct {
+	Domain      string          `json:"domain"`
+	Unicode     string          `json:"unicode_name,omitempty"` // исходное написание IDN-домена
+	Available   bool            `json:"available,omitempty"`
+	Registrar   *Registrar      `json:"registrar,omitempty"`
+	Registered  string          `json:"registered,omitempty"`
+	Updated     string          `json:"updated,omitempty"`
+	Expires     string          `json:"expires,omitempty"`
+	ExpiresDays int             `json:"expires_in_days,omitempty"` // отрицательное — домен просрочен
+	Status      []string        `json:"status,omitempty"`          // коды EPP: clientTransferProhibited и прочие
+	NameServers []string        `json:"name_servers,omitempty"`
+	DNSSEC      string          `json:"dnssec,omitempty"`
+	Contacts    []DomainContact `json:"contacts,omitempty"`
+	DNS         *DomainDNS      `json:"dns,omitempty"`
+	Sources     []string        `json:"sources,omitempty"`    // whois.com и/или опрошенные серверы WHOIS
+	Raw         string          `json:"raw_record,omitempty"` // ответ реестра как есть
+	Notes       []string        `json:"notes,omitempty"`      // источники, которые не ответили
+}
+
+// Registrar — регистратор домена и его контакт для жалоб. AbuseEmail — то
+// единственное поле, ради которого запись чаще всего и запрашивают.
+type Registrar struct {
+	Name        string `json:"name,omitempty"`
+	IANAID      string `json:"iana_id,omitempty"`
+	URL         string `json:"url,omitempty"`
+	WhoisServer string `json:"whois_server,omitempty"`
+	AbuseEmail  string `json:"abuse_email,omitempty"`
+	AbusePhone  string `json:"abuse_phone,omitempty"`
+}
+
+// DomainContact — участник записи. Role: registrant | admin | tech | billing.
+// Со времён GDPR у большинства gTLD заполнены только Country и Org, поэтому
+// пустые поля здесь — норма, а не признак сбоя.
+type DomainContact struct {
+	Role  string `json:"role"`
+	Name  string `json:"name,omitempty"`
+	Org   string `json:"organization,omitempty"`
+	Email string `json:"email,omitempty"`
+	// Web — веб-форма для связи. С введением GDPR регистраторы всё чаще
+	// подставляют вместо адреса почты ссылку на форму, и без отдельного поля
+	// она попадала бы в Email, где выглядела бы как рабочий адрес.
+	Web      string `json:"contact_form,omitempty"`
+	Phone    string `json:"phone,omitempty"`
+	Country  string `json:"country,omitempty"`
+	Location string `json:"location,omitempty"`
+}
+
+// DomainDNS — ответы DNS по домену на момент прогона. Err объясняет, почему
+// записей нет (NXDOMAIN, таймаут резолвера), — без этого пустой блок нельзя
+// отличить от неудачи.
+type DomainDNS struct {
+	A       []string `json:"a,omitempty"`
+	AAAA    []string `json:"aaaa,omitempty"`
+	NS      []string `json:"ns,omitempty"`
+	MX      []string `json:"mx,omitempty"`
+	TXT     []string `json:"txt,omitempty"`
+	TXTMore int      `json:"txt_omitted,omitempty"`
+	CNAME   string   `json:"cname,omitempty"`
+	Err     string   `json:"error,omitempty"`
 }

@@ -3,10 +3,13 @@ package main
 // main_test.go — тесты разбора аргументов и реестра тестов.
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/Zagorsky17/ServerOk/internal/netcheck"
+	"github.com/Zagorsky17/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/runner"
 )
 
 // Проверяем разбор размера с суффиксами. Кейс "1.5G" важен: дробные размеры
@@ -93,5 +96,49 @@ func TestIncludes(t *testing.T) {
 	}
 	if !includes(sel, "speedtest") || includes(sel, "disk") {
 		t.Errorf("includes misreports the selection: %v", sel)
+	}
+}
+
+// Тест whois стоит последним пунктом меню и снимается с прогона «всё
+// подряд», если домен не задан: спрашивать его в неинтерактивном режиме
+// негде, а без домена тест только добавил бы в отчёт строку неудачи.
+func TestWhoisEntry(t *testing.T) {
+	reg := buildRegistry()
+	all := reg.All()
+	if last := all[len(all)-1]; last.ID != "whois" {
+		t.Errorf("whois must be the last menu item, got %q", last.ID)
+	}
+	if sel, err := reg.Select([]string{"10"}); err != nil || sel[0].ID != "whois" {
+		t.Errorf("menu item 10 = %+v %v", sel, err)
+	}
+	left := without(all, "whois")
+	if len(left) != len(all)-1 {
+		t.Fatalf("without() removed %d tests", len(all)-len(left))
+	}
+	for _, tst := range left {
+		if tst.ID == "whois" {
+			t.Error("whois survived without()")
+		}
+	}
+	// Порядок остальных тестов не должен меняться: от него зависит отчёт.
+	if left[0].ID != all[0].ID || left[len(left)-1].ID != all[len(all)-2].ID {
+		t.Error("without() reordered the remaining tests")
+	}
+}
+
+// Без домена тест обязан сказать, чего ему не хватает, а не молча вернуть
+// пустую секцию.
+func TestWhoisWithoutDomain(t *testing.T) {
+	sel, err := buildRegistry().Select([]string{"whois"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep := &report.Report{}
+	err = sel[0].Run(&runner.Context{Context: context.Background(), Rep: rep})
+	if err == nil || !strings.Contains(err.Error(), "-domain") {
+		t.Errorf("error = %v, want a hint about -domain", err)
+	}
+	if rep.Domain != nil {
+		t.Error("the report must stay empty")
 	}
 }

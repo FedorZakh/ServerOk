@@ -35,6 +35,7 @@ import (
 	"github.com/Zagorsky17/ServerOk/internal/report"
 	"github.com/Zagorsky17/ServerOk/internal/runner"
 	"github.com/Zagorsky17/ServerOk/internal/ui"
+	"github.com/Zagorsky17/ServerOk/internal/whois"
 )
 
 // version подставляется при сборке через -ldflags "-X main.version=..."
@@ -63,6 +64,7 @@ func main() {
 		speedWith = flag.String("speed-method", "ookla", "how to measure speed: ookla (speedtest.net servers) or cloudflare (nearest edge)")
 		diskSize  = flag.String("disk-size", "1G", "disk test size, e.g. 512M or 2G")
 		diskPath  = flag.String("disk-path", "", "directory for the disk test (default: working directory)")
+		domain    = flag.String("domain", "", "domain for the whois test, e.g. example.com (asked in the menu otherwise)")
 		cpuTime   = flag.Float64("cpu-time", 2.5, "seconds spent per CPU workload and mode")
 		jsonOut   = flag.String("json", "", "write the report as JSON to this file")
 		mdOut     = flag.String("md", "", "write the report as Markdown to this file")
@@ -116,6 +118,16 @@ func main() {
 	if err := netcheck.ValidateSet(*nodes); err != nil {
 		fail(err)
 	}
+	// Домен проверяется здесь по той же причине, что и настройки speedtest:
+	// об опечатке лучше узнать сразу, а не после всех остальных тестов.
+	lookupDomain := ""
+	if *domain != "" {
+		name, _, err := whois.Normalize(*domain)
+		if err != nil {
+			fail(err)
+		}
+		lookupDomain = name
+	}
 
 	cfg := runConfig{
 		opts: runner.Options{
@@ -128,6 +140,7 @@ func main() {
 			SkipIPv6:    *noIPv6,
 			CPUSecs:     *cpuTime,
 			TraceHops:   *traceHops,
+			Domain:      lookupDomain,
 		},
 		timeout:  *timeout,
 		jsonPath: *jsonOut,
@@ -149,7 +162,15 @@ func main() {
 	// один прогон без вопросов.
 	in, interactive := ui.Input()
 	if *testList != "" || *all || !interactive {
-		runTests(selectByFlags(registry, *testList), cfg)
+		sel := selectByFlags(registry, *testList)
+		// «Прогнать всё» без -domain: спрашивать домен негде (терминала может
+		// не быть вовсе), а тест без домена только добавил бы в отчёт строку
+		// неудачи. Явный «-test whois» — другое дело: там пользователь сам
+		// назвал тест и должен увидеть, чего не хватает.
+		if *testList == "" && lookupDomain == "" {
+			sel = without(sel, "whois")
+		}
+		runTests(sel, cfg)
 		return
 	}
 
@@ -180,6 +201,17 @@ func main() {
 		// померить сначала до Европы, потом до Азии.
 		if includes(sel, "speedtest") && !speedFlagsSet {
 			run.opts.SpeedMethod, run.opts.Nodes = askSpeedProfile(in)
+		}
+		// Домен спрашивается тут же, до прогона: тест whois — единственный,
+		// которому нужны данные от пользователя. Отказ (пустой ввод) убирает
+		// тест из набора, а не проваливает его.
+		if includes(sel, "whois") && run.opts.Domain == "" {
+			if run.opts.Domain = askDomain(in); run.opts.Domain == "" {
+				sel = without(sel, "whois")
+			}
+		}
+		if len(sel) == 0 {
+			continue
 		}
 		if !runTests(sel, run) {
 			// Прогон прервали сигналом: это и есть запрошенный выход.
@@ -218,6 +250,28 @@ func askSpeedProfile(in io.Reader) (method, nodes string) {
 	}
 	idx, _ := ui.Choose("Speedtest: how and where to measure", items, 0, in)
 	return speedProfiles[idx].method, speedProfiles[idx].nodes
+}
+
+// askDomain спрашивает домен перед тестом whois и проверяет введённое сразу:
+// человек чаще всего вставляет ссылку целиком, и Normalize приводит её к
+// имени домена. Пустой ответ означает «пропустить тест».
+func askDomain(in io.Reader) string {
+	return ui.Ask("Domain WHOIS lookup", "Domain (e.g. example.com), empty to skip",
+		func(s string) (string, error) {
+			name, _, err := whois.Normalize(s)
+			return name, err
+		}, in)
+}
+
+// without возвращает набор без теста с указанным ID.
+func without(sel []runner.Test, id string) []runner.Test {
+	out := sel[:0:0]
+	for _, t := range sel {
+		if t.ID != id {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // includes сообщает, попал ли тест с таким ID в выбранный набор.
@@ -365,6 +419,10 @@ Usage:
   worldwide, one region (Europe / North America / Asia), or Cloudflare's
   nearest edge. Passing -nodes or -speed-method skips that question.
 
+  Picking the WHOIS lookup asks which domain to look up; -domain answers it
+  in advance. Without a domain the lookup is left out of a "run everything"
+  pass — it has nothing to query.
+
 Examples:
   serverok                        # interactive menu
   serverok -all                   # run everything
@@ -373,6 +431,7 @@ Examples:
   serverok -test speedtest -nodes eu          # Europe only (also: us, asia)
   serverok -test speedtest -nodes us,asia     # two regions in one run
   serverok -test speedtest -speed-method cloudflare
+  serverok -test whois -domain example.com      # domain registration + DNS
   serverok -all -quiet -json r.json
 
 Flags:

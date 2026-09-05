@@ -71,6 +71,22 @@ func KVRaw(key, value string) {
 	Line(Yellow(key) + strings.Repeat(" ", pad) + Yellow(":") + " " + value)
 }
 
+// KVList печатает несколько значений под одним ключом: первое — в строке с
+// ключом, остальные — выровненными под ним. Так в 70 колонок помещаются
+// длинные перечисления (серверы имён домена, адреса A/AAAA), которые в одну
+// строку через запятую не влезают.
+func KVList(key string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+	KV(key, values[0])
+	// Отступ ровно под значение: ширина ключа плюс двоеточие и пробел.
+	indent := strings.Repeat(" ", keyWidth+2)
+	for _, v := range values[1:] {
+		Line(indent + Cyan(v))
+	}
+}
+
 // Note печатает приглушённую пометку с отступом (например, «тест пропущен,
 // нужен root»).
 func Note(s string) { Line(Dim(" " + s)) }

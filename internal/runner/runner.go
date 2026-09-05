@@ -36,6 +36,7 @@ type Options struct {
 	SkipIPv6    bool          // не трогать IPv6 (флаг -no-ipv6)
 	CPUSecs     float64       // секунд на одну нагрузку CPU в каждом режиме
 	TraceHops   int           // максимум хопов traceroute
+	Domain      string        // домен для теста whois (флаг -domain или вопрос в меню)
 }
 
 // Context — то, что получает реализация теста. Встраивает context.Context,

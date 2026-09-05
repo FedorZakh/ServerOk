@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -100,5 +101,62 @@ func TestChoose(t *testing.T) {
 	}
 	if got, ok := Choose("pick", items, 2, strings.NewReader("")); got != 2 || ok {
 		t.Errorf("closed input = (%d, %v), want (2, false)", got, ok)
+	}
+}
+
+// Ask должен переспрашивать после неверного ответа, не теряя остаток ввода:
+// именно на этом ломался бы новый bufio.Reader на каждой попытке.
+func TestAsk(t *testing.T) {
+	Out = io.Discard
+	defer func() { Out = nil }()
+
+	// Валидатор: принимает только строки с точкой (упрощённый «домен»).
+	validate := func(s string) (string, error) {
+		if !strings.Contains(s, ".") {
+			return "", errors.New("not a domain")
+		}
+		return strings.ToLower(s), nil
+	}
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"Example.COM\n", "example.com"},
+		{"nonsense\nexample.net\n", "example.net"}, // первая попытка отвергнута
+		{"\n", ""}, // Enter — отказ отвечать
+		{"", ""},   // закрытый ввод
+	}
+	for _, c := range cases {
+		if got := Ask("Title", "Domain", validate, strings.NewReader(c.input)); got != c.want {
+			t.Errorf("Ask(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+	if got := Ask("Title", "Domain", validate, nil); got != "" {
+		t.Errorf("Ask(nil) = %q", got)
+	}
+}
+
+// KVList печатает первое значение в строке с ключом, остальные — под ним,
+// с отступом ровно под значение.
+func TestKVList(t *testing.T) {
+	var buf bytes.Buffer
+	Out = &buf
+	SetColor(false)
+	// Цвет возвращается на место: тесты пакета идут по очереди, и выключенный
+	// цвет сбил бы проверки выравнивания раскрашенных строк.
+	defer func() { Out = nil; SetColor(true) }()
+
+	KVList("Name Servers", []string{"ns1.example.net", "ns2.example.net"})
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines: %q", len(lines), buf.String())
+	}
+	if strings.Index(lines[0], "ns1.example.net") != strings.Index(lines[1], "ns2.example.net") {
+		t.Errorf("values are not aligned:\n%s", buf.String())
+	}
+	buf.Reset()
+	KVList("Empty", nil)
+	if buf.Len() != 0 {
+		t.Errorf("an empty list must print nothing, got %q", buf.String())
 	}
 }
