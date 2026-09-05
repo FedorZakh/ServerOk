@@ -548,6 +548,10 @@ func printDomainDNS(dns *DomainDNS) {
 
 // printRawWhois печатает ответ реестра как есть — обрезая длинные строки по
 // ширине рамки, иначе они переносятся и ломают её.
+//
+// Текст записи печатается обычным белым, а не Dim: приглушённый серый на
+// тёмной теме SSH-клиента почти не читается, а здесь это не служебная
+// пометка, а содержимое, ради которого тест и запускают.
 func printRawWhois(raw string) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -561,7 +565,7 @@ func printRawWhois(raw string) {
 			ui.Note(fmt.Sprintf("… %d more lines (full record goes to -json and -md)", len(lines)-maxRawLines))
 			break
 		}
-		ui.Line(ui.Dim(Truncate(strings.TrimRight(l, " \t\r"), ui.Width)))
+		ui.Line(ui.White(Truncate(strings.TrimRight(l, " \t\r"), ui.Width)))
 	}
 }
 
