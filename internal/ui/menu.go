@@ -56,12 +56,20 @@ func Menu(items []MenuItem, in io.Reader) ([]string, bool) {
 	Header("Select tests to run")
 
 	// Пункты печатаются в две колонки: первая половина слева, вторая справа.
+	// Номера выравниваются по правому краю: с десятым пунктом однозначные и
+	// двузначные номера иначе разъезжаются, и заголовки в колонке пляшут.
 	half := (len(items) + 1) / 2
+	numWidth := len(itoa(len(items)))
+	// Отступ считается по самому номеру, до раскраски: в цветной строке есть
+	// ANSI-коды, и ширину по ней fmt посчитал бы неверно.
+	cell := func(label, title string) string {
+		return " " + strings.Repeat(" ", numWidth-len(label)) + Green(label) + ") " + title
+	}
 	for i := 0; i < half; i++ {
-		left := fmt.Sprintf(" %s) %s", Green(itoa(i+1)), items[i].Title)
+		left := cell(itoa(i+1), items[i].Title)
 		right := ""
 		if j := i + half; j < len(items) {
-			right = fmt.Sprintf(" %s) %s", Green(itoa(j+1)), items[j].Title)
+			right = cell(itoa(j+1), items[j].Title)
 		}
 		// Ширина считается по видимым символам: в left есть ANSI-коды.
 		pad := 36 - visibleLen(left)
@@ -71,8 +79,8 @@ func Menu(items []MenuItem, in io.Reader) ([]string, bool) {
 		Line(left + strings.Repeat(" ", pad) + right)
 	}
 	// Последняя строка выравнивается по тем же колонкам, что и пункты выше.
-	quitLeft := " " + Green("a") + ") Run all tests"
-	Line(quitLeft + strings.Repeat(" ", 36-visibleLen(quitLeft)) + Green("0") + ") Quit")
+	quitLeft := cell("a", "Run all tests")
+	Line(quitLeft + strings.Repeat(" ", 36-visibleLen(quitLeft)) + cell("0", "Quit"))
 	Divider()
 
 	// Читатель создаётся один раз: bufio буферизует ввод, и новый читатель на
@@ -145,6 +153,41 @@ func atoi(s string) int {
 		return -1
 	}
 	return n
+}
+
+// Ask задаёт вопрос со свободным ответом и повторяет его, пока validate не
+// примет введённое. Пустой ввод (просто Enter) означает отказ отвечать —
+// возвращается пустая строка.
+//
+// Проверка передаётся колбэком, а не делается вызывающим в цикле, ровно по
+// той же причине, что и в Menu: bufio.Reader создаётся один раз. Новый
+// читатель на каждую попытку терял бы уже прочитанное из /dev/tty, и вторая
+// попытка ввода не срабатывала бы.
+func Ask(title, prompt string, validate func(string) (string, error), in io.Reader) string {
+	if in == nil {
+		return ""
+	}
+	Blank()
+	Header(title)
+	Divider()
+	reader := bufio.NewReader(in)
+	for {
+		write(Yellow(" " + prompt + ": "))
+		line, err := reader.ReadString('\n')
+		if err != nil && line == "" {
+			return ""
+		}
+		answer := strings.TrimSpace(line)
+		if answer == "" {
+			return ""
+		}
+		value, err := validate(answer)
+		if err != nil {
+			Warn(err.Error())
+			continue
+		}
+		return value
+	}
 }
 
 // Choice — один вариант подменю: строка выбора и пояснение справа от неё.
