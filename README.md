@@ -74,6 +74,14 @@ platform, verifies its SHA-256 and starts the menu:
 bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh)
 ```
 
+**This does not install anything.** The binary is unpacked into a temporary
+directory, run from there and deleted when it exits — including on Ctrl+C or an
+error. Nothing is written to `PATH`, `/usr/local/bin` is not touched, and no
+config files, services or background processes are left behind. The only files
+that survive a run are the reports you asked for with `-json` / `-md`, written
+to the current directory. Installing is a separate, explicit step (`--install`,
+below).
+
 Run every test without the menu (also what happens automatically when there is
 no terminal, e.g. in cron):
 
@@ -87,6 +95,11 @@ Install it permanently:
 bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh) --install
 serverok
 ```
+
+With `--install` the binary is moved out of the temporary directory into
+`/usr/local/bin` (with `sudo` if needed) and stays there; the script prints
+`installed to …` and exits without running any test, so the first run afterwards
+is yours to start.
 
 The installer refuses to run a binary it could not verify against
 `checksums.txt`; `--no-verify` overrides that, and `--install=<dir>` picks the
@@ -117,7 +130,8 @@ If you built with `go install` instead, the binary lands in
 
 ### Uninstalling
 
-`serverok` is a single static binary with no config files, services or
+Only needed if you installed it: a plain quick-start run leaves nothing to
+remove. `serverok` is a single static binary with no config files, services or
 background processes — removing it is just deleting the file:
 
 ```bash
