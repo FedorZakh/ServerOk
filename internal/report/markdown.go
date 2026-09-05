@@ -178,6 +178,53 @@ func Markdown(r *Report) string {
 		}
 	}
 
+	if d := r.Domain; d != nil {
+		b.WriteString("## Domain\n\n| Field | Value |\n|---|---|\n")
+		row := func(k, v string) {
+			if strings.TrimSpace(v) != "" {
+				fmt.Fprintf(&b, "| %s | %s |\n", k, v)
+			}
+		}
+		row("Domain", JoinNonEmpty(" / ", d.Domain, d.Unicode))
+		if d.Available {
+			row("Registration", "available")
+		} else {
+			row("Registration", "registered")
+		}
+		row("Registered", d.Registered)
+		row("Expires", expiryPlain(d.Expires, d.ExpiresDays))
+		row("Updated", d.Updated)
+		if rg := d.Registrar; rg != nil {
+			row("Registrar", JoinNonEmpty(" · ", rg.Name, rg.IANAID))
+			row("Registrar URL", rg.URL)
+			row("Abuse contact", JoinNonEmpty(" · ", rg.AbuseEmail, rg.AbusePhone))
+		}
+		row("Status", strings.Join(d.Status, ", "))
+		row("Name servers", strings.Join(d.NameServers, ", "))
+		row("DNSSEC", d.DNSSEC)
+		for _, c := range d.Contacts {
+			row(contactTitle(c.Role), JoinNonEmpty(" · ", c.Org, c.Name, c.Email, c.Web, c.Phone, JoinNonEmpty(", ", c.Location, c.Country)))
+		}
+		row("Sources", strings.Join(d.Sources, ", "))
+		b.WriteString("\n")
+		if dns := d.DNS; dns != nil {
+			b.WriteString("### DNS records\n\n| Type | Value |\n|---|---|\n")
+			row("CNAME", dns.CNAME)
+			row("A", strings.Join(dns.A, ", "))
+			row("AAAA", strings.Join(dns.AAAA, ", "))
+			row("NS", strings.Join(dns.NS, ", "))
+			row("MX", strings.Join(dns.MX, ", "))
+			row("TXT", strings.Join(dns.TXT, "<br>"))
+			row("Resolver", dns.Err)
+			b.WriteString("\n")
+		}
+		if raw := strings.TrimSpace(d.Raw); raw != "" {
+			// Сырая запись — в блоке кода: в ней есть символы, которые
+			// Markdown иначе истолкует как разметку.
+			fmt.Fprintf(&b, "### Raw WHOIS record\n\n```\n%s\n```\n\n", raw)
+		}
+	}
+
 	if len(r.Failures) > 0 {
 		b.WriteString("## Notes\n\n")
 		for _, f := range r.Failures {
@@ -201,6 +248,18 @@ func openClosed(b bool) string {
 		return "open"
 	}
 	return "blocked"
+}
+
+// expiryPlain — та же строка «дата (осталось дней)», что и в терминале, но
+// без цвета: в Markdown его нет.
+func expiryPlain(date string, days int) string {
+	switch {
+	case date == "" || days == 0:
+		return date
+	case days < 0:
+		return fmt.Sprintf("%s (expired %d days ago)", date, -days)
+	}
+	return fmt.Sprintf("%s (in %d days)", date, days)
 }
 
 func ipType(g *Geo) string {

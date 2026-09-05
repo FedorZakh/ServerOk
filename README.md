@@ -3,8 +3,8 @@
 A single-binary VPS benchmark and network diagnostics tool, in the spirit of
 `bench.sh` — but written in Go, with an interactive test menu and a much wider
 set of checks: IP geolocation, **RDAP registration data (who the IP is
-registered to)**, DNSBL reputation, streaming/AI service unblock checks and
-routing diagnostics.
+registered to)**, DNSBL reputation, streaming/AI service unblock checks,
+routing diagnostics and **WHOIS lookups for any domain**.
 
 No dependencies on the server: one static binary, no Python, no `speedtest-cli`,
 no `whois`.
@@ -101,17 +101,22 @@ rm "$(go env GOPATH)/bin/serverok"
 ## The menu
 
 ```
- 1) System Information               6) IP Location & Registration
- 2) CPU Benchmark                    7) IP Reputation (DNSBL)
- 3) Memory Benchmark                 8) Streaming & AI Service Unblock
- 4) Disk I/O Speed                   9) Routing, Latency & Ports
- 5) Network Speedtest
- a) Run all tests                   0) Quit
+  1) System Information               6) IP Location & Registration
+  2) CPU Benchmark                    7) IP Reputation (DNSBL)
+  3) Memory Benchmark                 8) Streaming & AI Service Unblock
+  4) Disk I/O Speed                   9) Routing, Latency & Ports
+  5) Network Speedtest               10) Domain WHOIS Lookup
+  a) Run all tests                    0) Quit
  Select (e.g. 1,3,5 or a):
 ```
 
 The menu comes back after every run, so you can keep picking tests; the tool
 exits when you choose `0` or press Ctrl+C.
+
+Item 10 asks which domain to look up (a pasted URL works — `https://example.com/x`
+becomes `example.com`); pressing Enter without typing anything skips it. Passing
+`-domain example.com` answers the question in advance, and without a domain the
+lookup is left out of `-all` runs — it would have nothing to query.
 
 ## Tests
 
@@ -125,6 +130,7 @@ exits when you choose `0` or press Ctrl+C.
 | **IP Location & Registration** | Geolocation of the IPv4/IPv6 address (ASN, ISP, city, hosting/proxy flags) **and the RDAP record: network name, CIDR, allocation type, registry, registrant organization, registration dates and the abuse contact** |
 | **IP Reputation (DNSBL)** | 14 blocklists (Spamhaus, Barracuda, SpamCop, SORBS, UCEPROTECT, …). Zones that refuse public resolvers are reported as inconclusive, not as "listed" |
 | **Streaming & AI Service Unblock** | Netflix (full / originals-only / blocked), YouTube Premium, Disney+, Prime Video, Spotify, ChatGPT, Claude, TikTok, Steam — with the region each one resolves you to. A service that answers but does not reveal a region is reported as `Unknown`, never as a confident `Yes` |
+| **Domain WHOIS Lookup** | Registration record for any domain from [whois.com](https://www.whois.com/) — registrar and IANA ID, abuse contact, creation/expiry/update dates with the days left, EPP status codes, name servers, DNSSEC and the registrant/admin/tech contacts, plus the raw registry record and the domain's live DNS (A, AAAA, NS, MX, TXT, CNAME). When whois.com answers with a captcha, the registry and registrar are queried directly over WHOIS port 43 |
 | **Routing, Latency & Ports** | RTT to 11 global anchors (ICMP, falling back to TCP/443), outbound port reachability (25, 465, 587, … — does the provider block SMTP?), IPv4/IPv6, MTU, congestion control and BBR availability, DNS resolver identity, and traceroutes to four key networks with per-hop AS lookup |
 
 ## Flags
@@ -140,6 +146,7 @@ exits when you choose `0` or press Ctrl+C.
                        how to measure speed (default: ookla)
   -disk-size 1G        size of the disk test file
   -disk-path DIR       where to run the disk test (default: working directory)
+  -domain example.com  domain for the WHOIS lookup (asked in the menu otherwise)
   -cpu-time 2.5        seconds per CPU workload and mode
   -json report.json    write the report as JSON
   -md report.md        write the report as Markdown (for forum posts)
@@ -160,6 +167,7 @@ serverok -test speedtest -nodes eu     # speed to Europe only (us, asia too)
 serverok -test speedtest -nodes us,asia          # two regions in one run
 serverok -test speedtest -speed-method cloudflare  # nearest CDN edge, ~20 s
 serverok -test ip,blacklist            # who owns this IP, and is it clean?
+serverok -test whois -domain example.com   # registration record + live DNS
 serverok -all -quiet -json report.json # for cron and dashboards
 ```
 
@@ -192,6 +200,12 @@ Picking the speedtest from the interactive menu asks which of these to run;
   rather than as a regional block, and reachability without a region marker is
   `Unknown` rather than `Yes` (disneyplus.com, for one, answers 200 worldwide).
   All of them live in `internal/unblock/checks.go`, one function each.
+* **The WHOIS lookup reads whois.com first**, because its parsed record looks
+  the same for every TLD. That page occasionally comes back as a captcha (most
+  often for domains that turn out to be unregistered), so the tool then asks
+  IANA which registry serves the TLD and queries the registry — and the
+  registrar it points to — over port 43 itself. Providers that block outbound
+  port 43 lose only that fallback.
 * **Latency prefers ICMP and falls back to a TCP handshake**, and each row says
   which method produced the number. Replies are matched against the probe
   (peer, sequence, and id on a raw socket), so parallel anchors cannot borrow
@@ -235,6 +249,7 @@ internal/bench/       CPU, memory and disk benchmarks
 internal/netcheck/    speedtest, latency, traceroute, ports, stack
 internal/ipinfo/      geolocation, RDAP, DNSBL
 internal/unblock/     streaming and AI service probes
+internal/whois/       domain lookups: whois.com, WHOIS port 43, DNS records
 internal/report/      data model + text/JSON/Markdown renderers
 ```
 
@@ -251,10 +266,10 @@ all derive from that registry.
 * **[speedtest-go](https://github.com/showwin/speedtest-go)** — speedtest.net
   client for the Network Speedtest.
 * **[golang.org/x/net](https://pkg.go.dev/golang.org/x/net)** — raw ICMP
-  sockets for latency probing.
+  sockets for latency probing and IDN (punycode) conversion for domain lookups.
 * **[golang.org/x/term](https://pkg.go.dev/golang.org/x/term)** — TTY
   detection for the interactive menu vs. non-interactive (`-all`/cron) mode.
-* Everything else (RDAP, DNSBL, geolocation, unblock checks, traceroute) is
+* Everything else (RDAP, WHOIS, DNSBL, geolocation, unblock checks, traceroute) is
   plain `net`/`net/http` against public APIs and system tools — no other
   third-party dependencies.
 

@@ -12,6 +12,7 @@ import (
 	"github.com/Zagorsky17/ServerOk/internal/runner"
 	"github.com/Zagorsky17/ServerOk/internal/sysinfo"
 	"github.com/Zagorsky17/ServerOk/internal/unblock"
+	"github.com/Zagorsky17/ServerOk/internal/whois"
 )
 
 // tests.go — единственное место, где объявлены тесты.
@@ -180,6 +181,24 @@ func buildRegistry() *runner.Registry {
 				return nil
 			},
 			Print: func(r *report.Report) { report.PrintNetwork(r.Network) },
+		},
+		runner.Test{
+			ID: "whois", Title: "Domain WHOIS Lookup", Order: 100,
+			Run: func(c *runner.Context) error {
+				// Единственный тест, которому нужен ввод пользователя: домен
+				// спрашивается в меню перед прогоном или задаётся флагом
+				// -domain (см. main.go). Без домена тесту делать нечего.
+				if c.Opts.Domain == "" {
+					return errors.New("no domain given: run with -domain example.com")
+				}
+				info, err := whois.Lookup(c, c.Opts.Domain, c.Status)
+				if err != nil {
+					return err
+				}
+				c.Rep.Domain = info
+				return nil
+			},
+			Print: func(r *report.Report) { report.PrintDomain(r.Domain) },
 		},
 	)
 }

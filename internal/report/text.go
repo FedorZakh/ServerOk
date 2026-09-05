@@ -422,6 +422,149 @@ func PrintNetwork(n *NetDiag) {
 	}
 }
 
+// Сколько строк сырой записи WHOIS печатать в терминал. Записи бывают на
+// двести строк с юридическими примечаниями реестра; целиком они уходят в
+// -json и -md, а на экране от них нужен только сам ответ.
+const maxRawLines = 40
+
+// PrintDomain печатает отчёт по домену: регистрационную запись, ответы DNS
+// и — в конце, приглушённым текстом — сырой ответ WHOIS.
+//
+// Свободный домен обрабатывается отдельной веткой: у него нет ни дат, ни
+// регистратора, и печатать пустые строки вместо честного «available» значило
+// бы выдать отсутствие записи за сбой.
+func PrintDomain(d *DomainInfo) {
+	ui.KV("Domain", JoinNonEmpty(" · ", d.Domain, d.Unicode))
+	if d.Available {
+		ui.KVRaw("Registration", ui.Green("available (no WHOIS record)"))
+		printDomainDNS(d.DNS)
+		return
+	}
+	ui.KVRaw("Registration", ui.Yes("registered"))
+	if d.Registered != "" {
+		ui.KV("Registered", d.Registered)
+	}
+	if d.Expires != "" {
+		ui.KVRaw("Expires", expiry(d.Expires, d.ExpiresDays))
+	}
+	if d.Updated != "" {
+		ui.KV("Last Updated", d.Updated)
+	}
+	if r := d.Registrar; r != nil {
+		name := r.Name
+		if r.IANAID != "" {
+			name = JoinNonEmpty(" · ", name, "IANA "+r.IANAID)
+		}
+		if name != "" {
+			ui.KV("Registrar", name)
+		}
+		if r.URL != "" {
+			ui.KV("Registrar URL", Truncate(r.URL, ui.Width-22))
+		}
+		if abuse := JoinNonEmpty(" · ", r.AbuseEmail, r.AbusePhone); abuse != "" {
+			ui.KV("Abuse Contact", Truncate(abuse, ui.Width-22))
+		}
+	}
+	if len(d.Status) > 0 {
+		ui.KVList("EPP Status", d.Status)
+	}
+	if len(d.NameServers) > 0 {
+		ui.KVList("Name Servers", d.NameServers)
+	}
+	if d.DNSSEC != "" {
+		ui.KV("DNSSEC", d.DNSSEC)
+	}
+	for _, c := range d.Contacts {
+		v := JoinNonEmpty(" · ", c.Org, c.Name, c.Email, c.Web, c.Phone, JoinNonEmpty(", ", c.Location, c.Country))
+		if v != "" {
+			ui.KV(contactTitle(c.Role), Truncate(v, ui.Width-22))
+		}
+	}
+	if len(d.Sources) > 0 {
+		ui.KV("Data Source", Truncate(strings.Join(d.Sources, ", "), ui.Width-22))
+	}
+	for _, n := range d.Notes {
+		ui.Note(Truncate(n, ui.Width-4))
+	}
+
+	printDomainDNS(d.DNS)
+	printRawWhois(d.Raw)
+}
+
+// expiry раскрашивает дату окончания регистрации: просроченный домен — красный,
+// меньше месяца до продления — жёлтый. Именно ради этой строки отчёт по домену
+// чаще всего и открывают.
+func expiry(date string, days int) string {
+	switch {
+	case days < 0:
+		return ui.Red(fmt.Sprintf("%s (expired %d days ago)", date, -days))
+	case days == 0:
+		return ui.Cyan(date)
+	case days <= 30:
+		return ui.Yellow(fmt.Sprintf("%s (in %d days)", date, days))
+	}
+	return ui.Cyan(fmt.Sprintf("%s (in %d days)", date, days))
+}
+
+// contactTitle переводит роль контакта в подпись строки.
+func contactTitle(role string) string {
+	switch role {
+	case "registrant":
+		return "Registrant"
+	case "admin":
+		return "Admin Contact"
+	case "tech":
+		return "Tech Contact"
+	case "billing":
+		return "Billing Contact"
+	}
+	return title(role)
+}
+
+// printDomainDNS печатает то, что домен отвечает в DNS сейчас, — отдельной
+// секцией, потому что это данные другой природы: запись WHOIS меняется раз в
+// год, а A-запись может измениться к следующему прогону.
+func printDomainDNS(dns *DomainDNS) {
+	if dns == nil {
+		return
+	}
+	ui.Blank()
+	ui.Header("DNS Records")
+	if dns.CNAME != "" {
+		ui.KV("CNAME", dns.CNAME)
+	}
+	ui.KVList("A", dns.A)
+	ui.KVList("AAAA", dns.AAAA)
+	ui.KVList("NS", dns.NS)
+	ui.KVList("MX", dns.MX)
+	ui.KVList("TXT", dns.TXT)
+	if dns.TXTMore > 0 {
+		ui.Note(fmt.Sprintf("%d more TXT records omitted", dns.TXTMore))
+	}
+	if dns.Err != "" {
+		ui.KVRaw("Resolver", ui.Yellow(dns.Err))
+	}
+}
+
+// printRawWhois печатает ответ реестра как есть — обрезая длинные строки по
+// ширине рамки, иначе они переносятся и ломают её.
+func printRawWhois(raw string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return
+	}
+	ui.Blank()
+	ui.Header("Raw WHOIS Record")
+	lines := strings.Split(raw, "\n")
+	for i, l := range lines {
+		if i == maxRawLines {
+			ui.Note(fmt.Sprintf("… %d more lines (full record goes to -json and -md)", len(lines)-maxRawLines))
+			break
+		}
+		ui.Line(ui.Dim(Truncate(strings.TrimRight(l, " \t\r"), ui.Width)))
+	}
+}
+
 // PrintFailures печатает секцию Notes — список тестов, которые не
 // завершились, с причиной. Нужна, чтобы отсутствие секции в отчёте нельзя
 // было принять за «всё хорошо».

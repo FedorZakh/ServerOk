@@ -4,7 +4,7 @@
 интерактивным меню выбора тестов и заметно более широким набором проверок:
 геолокация IP, **данные RDAP о том, на кого зарегистрирован IP**, репутация IP
 по DNSBL, проверка разблокировки стриминга и AI-сервисов, диагностика
-маршрутизации.
+маршрутизации и **WHOIS-справка по любому домену**.
 
 На сервере ничего не нужно: один статический бинарник, без Python,
 `speedtest-cli` и `whois`.
@@ -72,17 +72,22 @@ rm "$(go env GOPATH)/bin/serverok"
 ## Меню
 
 ```
- 1) System Information               6) IP Location & Registration
- 2) CPU Benchmark                    7) IP Reputation (DNSBL)
- 3) Memory Benchmark                 8) Streaming & AI Service Unblock
- 4) Disk I/O Speed                   9) Routing, Latency & Ports
- 5) Network Speedtest
- a) Run all tests                   0) Quit
+  1) System Information               6) IP Location & Registration
+  2) CPU Benchmark                    7) IP Reputation (DNSBL)
+  3) Memory Benchmark                 8) Streaming & AI Service Unblock
+  4) Disk I/O Speed                   9) Routing, Latency & Ports
+  5) Network Speedtest               10) Domain WHOIS Lookup
+  a) Run all tests                    0) Quit
  Select (e.g. 1,3,5 or a):
 ```
 
 После каждого прогона меню появляется снова — можно запускать тесты один за
 другим. Программа завершается по пункту `0` или по Ctrl+C.
+
+Пункт 10 спрашивает домен (можно вставить ссылку целиком — из
+`https://example.com/x` возьмётся `example.com`); пустой ввод пропускает тест.
+Флаг `-domain example.com` отвечает на этот вопрос заранее, а без домена
+справка не попадает в прогон `-all` — спрашивать там некого и не о чем.
 
 Отчёт печатается на английском — так им удобнее делиться на форумах
 (LowEndTalk, NodeSeek и т. п.).
@@ -99,6 +104,7 @@ rm "$(go env GOPATH)/bin/serverok"
 | **IP Location & Registration** | Геолокация IPv4/IPv6 (ASN, ISP, город, признаки hosting/proxy) **и запись RDAP: имя сети, CIDR, тип выделения, реестр, организация-владелец, даты регистрации и abuse-контакт** |
 | **IP Reputation (DNSBL)** | 14 чёрных списков (Spamhaus, Barracuda, SpamCop, SORBS, UCEPROTECT и др.). Зоны, отказывающие публичным резолверам, помечаются как неопределённые, а не как «в списке» |
 | **Streaming & AI Service Unblock** | Netflix (полный каталог / только оригиналы / блок), YouTube Premium, Disney+, Prime Video, Spotify, ChatGPT, Claude, TikTok, Steam — с регионом, который видит каждый сервис. Если сервис отвечает, но регион подтвердить нечем, пишется `Unknown`, а не уверенное `Yes` |
+| **Domain WHOIS Lookup** | Регистрационная запись любого домена с [whois.com](https://www.whois.com/): регистратор и его IANA ID, контакт для жалоб, даты регистрации, продления и изменения с остатком дней, коды статуса EPP, серверы имён, DNSSEC и контакты владельца, администратора и техподдержки. Плюс сырой ответ реестра и текущие записи DNS (A, AAAA, NS, MX, TXT, CNAME). Если whois.com отвечает капчей, реестр и регистратор опрашиваются напрямую по WHOIS на порту 43 |
 | **Routing, Latency & Ports** | RTT до 11 мировых точек (ICMP с откатом на TCP/443), доступность исходящих портов (25, 465, 587 — не режет ли провайдер SMTP), IPv4/IPv6, MTU, congestion control и наличие BBR, публичный DNS-резолвер, трассировки до четырёх ключевых сетей с определением AS каждого хопа |
 
 ## Флаги
@@ -114,6 +120,7 @@ rm "$(go env GOPATH)/bin/serverok"
                        способ замера скорости (по умолчанию ookla)
   -disk-size 1G        размер файла для теста диска
   -disk-path DIR       где выполнять тест диска (по умолчанию — текущий каталог)
+  -domain example.com  домен для WHOIS-справки (иначе спрашивается в меню)
   -cpu-time 2.5        секунд на каждую нагрузку CPU в каждом режиме
   -json report.json    сохранить отчёт в JSON
   -md report.md        сохранить отчёт в Markdown (для форумов)
@@ -134,6 +141,7 @@ serverok -test speedtest -nodes eu     # скорость только до Ев
 serverok -test speedtest -nodes us,asia            # два региона за один прогон
 serverok -test speedtest -speed-method cloudflare  # ближайший CDN, ~20 секунд
 serverok -test ip,blacklist            # чей это IP и чист ли он
+serverok -test whois -domain example.com   # запись о домене и его DNS
 serverok -all -quiet -json report.json # для cron и дашбордов
 ```
 
@@ -166,6 +174,12 @@ serverok -all -quiet -json report.json # для cron и дашбордов
   не как гео-блокировка, а доступность без подтверждённого региона — как
   `Unknown`, а не `Yes` (тот же disneyplus.com отвечает 200 из любой страны).
   Все проверки лежат в `internal/unblock/checks.go` — по одной функции на сервис.
+* **WHOIS-справка сначала читает whois.com**: его разобранная запись выглядит
+  одинаково для всех доменных зон. Эта страница иногда возвращается капчей
+  (чаще всего — для доменов, которые оказались свободны), и тогда программа
+  сама спрашивает у IANA, какой реестр обслуживает зону, и опрашивает реестр,
+  а за ним и регистратора, по порту 43. У провайдеров, режущих исходящий порт
+  43, теряется только этот запасной путь.
 * **Задержки меряются по ICMP с откатом на TCP-хендшейк**, и в строке указан
   фактический метод. Ответ сопоставляется с запросом (адрес, sequence, а на
   raw-сокете ещё и id), поэтому параллельные якоря не забирают чужие тайминги.
@@ -207,6 +221,7 @@ internal/bench/       бенчмарки CPU, памяти и диска
 internal/netcheck/    speedtest, задержки, traceroute, порты, стек
 internal/ipinfo/      геолокация, RDAP, DNSBL
 internal/unblock/     проверки стриминга и AI-сервисов
+internal/whois/       домен: whois.com, WHOIS на порту 43, записи DNS
 internal/report/      модель данных + рендеры text/JSON/Markdown
 ```
 
@@ -223,10 +238,10 @@ internal/report/      модель данных + рендеры text/JSON/Markd
 * **[speedtest-go](https://github.com/showwin/speedtest-go)** — клиент
   speedtest.net для теста Network Speedtest.
 * **[golang.org/x/net](https://pkg.go.dev/golang.org/x/net)** — raw ICMP-сокеты
-  для замера задержек.
+  для замера задержек и перевод IDN-доменов в punycode.
 * **[golang.org/x/term](https://pkg.go.dev/golang.org/x/term)** — определение
   TTY, чтобы выбрать интерактивное меню или неинтерактивный режим (`-all`/cron).
-* Всё остальное (RDAP, DNSBL, геолокация, проверки разблокировки, traceroute)
+* Всё остальное (RDAP, WHOIS, DNSBL, геолокация, проверки разблокировки, traceroute)
   сделано на голых `net`/`net/http` к публичным API и системным утилитам —
   других сторонних зависимостей нет.
 
