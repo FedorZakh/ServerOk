@@ -37,6 +37,34 @@ Location           : Kerkrade / NL
 Region             : Limburg
 ```
 
+## What it adds over `bench.sh`
+
+**You pick where the speed is measured.** A server that looks fast to the
+datacentre next door can be slow to the people you actually serve, so a single
+number is the wrong answer — the direction is part of the question. Choose a
+region (`eu`, `us`, `asia`, combinable), the quick three-node set, all sixteen
+nodes, or Cloudflare's nearest edge for what a visitor pulling from a CDN gets.
+The menu asks before the run, so the same server can be measured to Europe and
+then to Asia without restarting anything:
+
+```bash
+serverok -test speedtest -nodes eu        # Europe only
+serverok -test speedtest -nodes us,asia   # two regions in one run
+serverok -test speedtest -speed-method cloudflare   # nearest CDN edge, ~20 s
+```
+
+**You can look up any domain without installing `whois`.** Menu item 10 takes a
+domain (a pasted URL works) and prints the registration record: registrar and
+abuse contact, creation, expiry and update dates with the days left, EPP status
+codes, name servers, DNSSEC and the raw registry record — plus what the domain
+answers in DNS right now (A, AAAA, NS, MX, TXT, CNAME), which the registry
+record never tells you. Handy on a fresh VPS, where there is neither a `whois`
+binary nor a package manager you feel like using:
+
+```bash
+serverok -test whois -domain example.com
+```
+
 ## Quick start
 
 Run it straight from GitHub — the script downloads the release binary for your
