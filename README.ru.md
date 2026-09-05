@@ -107,7 +107,7 @@ rm "$(go env GOPATH)/bin/serverok"
   4) Disk I/O Speed                   9) Routing, Latency & Ports
   5) Network Speedtest               10) Domain WHOIS Lookup
   a) Run all tests                    0) Quit
- Select (e.g. 1,3,5 or a):
+ Select (1-10 or a):
 ```
 
 После каждого прогона меню появляется снова — можно запускать тесты один за

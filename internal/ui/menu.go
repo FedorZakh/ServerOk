@@ -87,7 +87,9 @@ func Menu(items []MenuItem, in io.Reader) ([]string, bool) {
 	// каждой попытке терял бы уже прочитанное из tty.
 	reader := bufio.NewReader(in)
 	for {
-		write(Yellow(" Select (e.g. 1,3,5 or a): "))
+		// Диапазон печатается по факту, а не примером: пунктов уже десять, и
+		// «1,3,5» не отвечало на вопрос, докуда вообще можно считать.
+		write(Yellow(fmt.Sprintf(" Select (1-%d or a): ", len(items))))
 		line, err := reader.ReadString('\n')
 		// Пустой ввод с ошибкой (закрытый tty, EOF) — выходим, не запуская ничего.
 		if err != nil && line == "" {
