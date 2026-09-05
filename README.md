@@ -43,20 +43,20 @@ Run it straight from GitHub — the script downloads the release binary for your
 platform, verifies its SHA-256 and starts the menu:
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh)
 ```
 
 Run every test without the menu (also what happens automatically when there is
 no terminal, e.g. in cron):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh | bash -s -- -all
+curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh | bash -s -- -all
 ```
 
 Install it permanently:
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh) --install
+bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh) --install
 serverok
 ```
 
@@ -67,9 +67,9 @@ target directory.
 Or build it yourself:
 
 ```bash
-go install github.com/FedorZakh/ServerOk/cmd/serverok@latest
+go install github.com/Zagorsky17/ServerOk/cmd/serverok@latest
 # or
-git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
+git clone https://github.com/Zagorsky17/ServerOk && cd serverok && make build
 ```
 
 ### Running it after install

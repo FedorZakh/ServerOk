@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 func TestResolveSet(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FedorZakh/ServerOk/internal/netcheck"
+	"github.com/Zagorsky17/ServerOk/internal/netcheck"
 )
 
 // Проверяем разбор размера с суффиксами. Кейс "1.5G" важен: дробные размеры

@@ -21,7 +21,7 @@ import (
 
 	"github.com/shirou/gopsutil/v4/disk"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 const (

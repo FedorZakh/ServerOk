@@ -1,14 +1,14 @@
 #!/bin/sh
 # ServerOk bootstrap installer.
 #
-#   bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)
-#   curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh | bash -s -- -all
+#   bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh)
+#   curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh | bash -s -- -all
 #
 # It downloads the release binary for this platform, verifies its SHA-256 and
 # runs it. Arguments after `--` are passed straight to serverok.
 set -eu
 
-REPO="${SERVERTESTER_REPO:-FedorZakh/ServerOk}"
+REPO="${SERVERTESTER_REPO:-Zagorsky17/ServerOk}"
 BINARY="serverok"
 INSTALL_DIR=""
 NO_VERIFY=0

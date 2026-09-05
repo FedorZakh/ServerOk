@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // checks_test.go — проверки сервисов на локальном httptest-сервере.

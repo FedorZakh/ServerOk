@@ -15,7 +15,7 @@ import (
 
 	"github.com/shirou/gopsutil/v4/mem"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 const (

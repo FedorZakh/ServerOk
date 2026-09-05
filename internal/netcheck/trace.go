@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // trace.go — трассировка маршрута с определением автономных систем.

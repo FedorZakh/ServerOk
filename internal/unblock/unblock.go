@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FedorZakh/ServerOk/internal/netutil"
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 const checkTimeout = 12 * time.Second

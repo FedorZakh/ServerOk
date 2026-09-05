@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
-	"github.com/FedorZakh/ServerOk/internal/ui"
+	"github.com/Zagorsky17/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/ui"
 )
 
 // Options — настройки, заданные пользователем через флаги; передаются каждому

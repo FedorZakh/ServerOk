@@ -31,10 +31,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/FedorZakh/ServerOk/internal/netcheck"
-	"github.com/FedorZakh/ServerOk/internal/report"
-	"github.com/FedorZakh/ServerOk/internal/runner"
-	"github.com/FedorZakh/ServerOk/internal/ui"
+	"github.com/Zagorsky17/ServerOk/internal/netcheck"
+	"github.com/Zagorsky17/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/runner"
+	"github.com/Zagorsky17/ServerOk/internal/ui"
 )
 
 // version подставляется при сборке через -ldflags "-X main.version=..."
@@ -43,7 +43,7 @@ var version = "dev"
 
 // usageHint печатается в шапке отчёта — так по скопированному на форум
 // выводу видно, чем он получен.
-const usageHint = "bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)"
+const usageHint = "bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh)"
 
 // runConfig — всё, что нужно одному прогону, кроме списка тестов. Собирается
 // один раз из флагов и переиспользуется на каждой итерации меню.

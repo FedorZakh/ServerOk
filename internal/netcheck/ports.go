@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // ports.go — проверка исходящих TCP-портов.

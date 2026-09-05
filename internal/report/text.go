@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/FedorZakh/ServerOk/internal/ui"
+	"github.com/Zagorsky17/ServerOk/internal/ui"
 )
 
 // Banner печатает шапку с версией и подсказкой по запуску — как в bench.sh.

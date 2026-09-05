@@ -25,9 +25,9 @@ import (
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 
-	"github.com/FedorZakh/ServerOk/internal/ipinfo"
-	"github.com/FedorZakh/ServerOk/internal/netutil"
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/ipinfo"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // Collect собирает данные для шапки отчёта.

@@ -15,20 +15,20 @@
 SHA-256 и откроет меню:
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh)
 ```
 
 Прогнать все тесты без меню (так же происходит автоматически, если терминала
 нет — например, в cron):
 
 ```bash
-curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh | bash -s -- -all
+curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh | bash -s -- -all
 ```
 
 Установить в систему:
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/FedorZakh/ServerOk/main/scripts/install.sh) --install
+bash <(curl -sL https://raw.githubusercontent.com/Zagorsky17/ServerOk/main/scripts/install.sh) --install
 serverok
 ```
 
@@ -38,9 +38,9 @@ serverok
 Собрать самому:
 
 ```bash
-go install github.com/FedorZakh/ServerOk/cmd/serverok@latest
+go install github.com/Zagorsky17/ServerOk/cmd/serverok@latest
 # или
-git clone https://github.com/FedorZakh/ServerOk && cd serverok && make build
+git clone https://github.com/Zagorsky17/ServerOk && cd serverok && make build
 ```
 
 ### Запуск после установки

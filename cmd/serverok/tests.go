@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/FedorZakh/ServerOk/internal/bench"
-	"github.com/FedorZakh/ServerOk/internal/ipinfo"
-	"github.com/FedorZakh/ServerOk/internal/netcheck"
-	"github.com/FedorZakh/ServerOk/internal/netutil"
-	"github.com/FedorZakh/ServerOk/internal/report"
-	"github.com/FedorZakh/ServerOk/internal/runner"
-	"github.com/FedorZakh/ServerOk/internal/sysinfo"
-	"github.com/FedorZakh/ServerOk/internal/unblock"
+	"github.com/Zagorsky17/ServerOk/internal/bench"
+	"github.com/Zagorsky17/ServerOk/internal/ipinfo"
+	"github.com/Zagorsky17/ServerOk/internal/netcheck"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/runner"
+	"github.com/Zagorsky17/ServerOk/internal/sysinfo"
+	"github.com/Zagorsky17/ServerOk/internal/unblock"
 )
 
 // tests.go — единственное место, где объявлены тесты.

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FedorZakh/ServerOk/internal/netutil"
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // checks.go — сами проверки сервисов, по одной функции на сервис.

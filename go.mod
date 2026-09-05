@@ -1,4 +1,4 @@
-module github.com/FedorZakh/ServerOk
+module github.com/Zagorsky17/ServerOk
 
 go 1.26.2
 

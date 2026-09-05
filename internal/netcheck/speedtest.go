@@ -10,8 +10,8 @@ import (
 
 	"github.com/showwin/speedtest-go/speedtest"
 
-	"github.com/FedorZakh/ServerOk/internal/netutil"
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // speedtest.go — измерение скорости канала через инфраструктуру speedtest.net

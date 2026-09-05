@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FedorZakh/ServerOk/internal/ipinfo"
-	"github.com/FedorZakh/ServerOk/internal/netutil"
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/ipinfo"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // stack.go — свойства сетевого стека самой машины.

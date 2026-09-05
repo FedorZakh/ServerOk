@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/FedorZakh/ServerOk/internal/netutil"
+	"github.com/Zagorsky17/ServerOk/internal/netutil"
 )
 
 // geo_test.go — разбор ответов геолокации и, главное, защита от недоверенных

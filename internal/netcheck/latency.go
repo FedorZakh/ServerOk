@@ -31,7 +31,7 @@ import (
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // protocolICMP — номер протокола ICMPv4 по IANA, нужен для разбора пакета.

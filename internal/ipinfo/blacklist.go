@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FedorZakh/ServerOk/internal/report"
+	"github.com/Zagorsky17/ServerOk/internal/report"
 )
 
 // blacklist.go — проверка репутации адреса по чёрным спискам (DNSBL).
